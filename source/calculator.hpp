@@ -67,7 +67,6 @@ template <typename T> struct Calculation {
       do {
         if (C == '-' || C == '+') {
           if (S.empty() || (S.back() != 'e' && S.back() != 'E')) {
-            SS.unget();
             break;
           }
         }
