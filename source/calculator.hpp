@@ -8,7 +8,7 @@
 
 namespace calc {
 
-enum { Tk_None = 0, TK_String = -1, TK_Number = -2, TK_END = -3 };
+enum TokenKind { TK_None = 0, TK_String = -1, TK_Number = -2, TK_END = -3 };
 
 struct Token {
   int Kind;

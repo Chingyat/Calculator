@@ -3,18 +3,18 @@
 #include <readline/history.h>
 #include <readline/readline.h>
 
+struct free_str {
+  void operator()(char *str) noexcept {
+    free(str);
+  }
+};
+
 bool readExpr(std::string &Expr) {
-  char *input = readline(">> ");
+  std::unique_ptr<char, free_str> input(readline(">> "));
   if (!input)
     return false;
-  add_history(input);
-  try {
-    Expr.assign(input);
-  } catch (...) {
-    free(input);
-    throw;
-  }
-  free(input);
+  add_history(input.get());
+  Expr.assign(input.get());
   return true;
 }
 
