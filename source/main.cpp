@@ -22,9 +22,35 @@ std::function<double(std::vector<double>)> UnaryFunction(Callable &&Func) {
     return Func(args[0]);
   };
 }
+calc::Calculator Calc;
+
+char *CompletionGenerator(const char *Text, int State) {
+  static std::vector<std::string> Matches;
+  static size_t MatchIndex = 0;
+
+  if (State == 0) {
+    Matches.clear();
+    MatchIndex = 0;
+
+    for (auto &&X : Calc.Variables) {
+      if (X.first.find(Text) == 0 && X.first != Text)
+        Matches.push_back(X.first);
+    }
+
+    for (auto &&X : Calc.Functions) {
+      if (X.first.find(Text) == 0 && X.first != Text)
+        Matches.push_back(X.first + '(');
+    }
+  }
+
+  if (MatchIndex >= Matches.size()) {
+    return nullptr;
+  } else {
+    return strdup(Matches[MatchIndex++].c_str());
+  }
+}
 
 int main() {
-  calc::Calculator Calc;
   Calc.setValue("pi", 3.1415926535897);
   Calc.setValue("e", 2.718);
   Calc.setFunction("sqrt",
@@ -33,6 +59,11 @@ int main() {
                    UnaryFunction(static_cast<double (&)(double)>(std::exp)));
 
   std::string Expr;
+
+  ::rl_attempted_completion_function = [](const char *Text, int, int) {
+    rl_attempted_completion_over = 1;
+    return rl_completion_matches(Text, CompletionGenerator);
+  };
 
   while (readExpr(Expr)) {
 

@@ -116,10 +116,11 @@ public:
 };
 
 class Calculator {
+public:
+
   std::map<std::string, double> Variables;
   std::map<std::string, std::function<double(std::vector<double>)>> Functions;
 
-public:
   double calculate(std::string Expr);
 
   double getValue(const std::string &Name) const;
