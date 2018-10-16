@@ -3,12 +3,41 @@
 namespace calc {
 double IdentifierAST::eval(Calculator *C) { return C->getValue(getName()); }
 
+std::vector<std::string> CallExprAST::getParams() const {
+  std::vector<std::string> Ret;
+  for (auto &&X : Args) {
+    Ret.push_back(dynamic_cast<const IdentifierAST &>(*X).getName());
+  }
+  return Ret;
+}
+
 double BinExprAST::eval(Calculator *C) {
   if (Op == '=') {
-    double Ret;
-    C->setValue(dynamic_cast<const IdentifierAST &>(*LHS).getName(),
-                (Ret = RHS->eval(C)));
-    return Ret;
+    if (auto Identifier = dynamic_cast<const IdentifierAST *>(LHS.get())) {
+      double Ret;
+      C->setValue(Identifier->getName(), (Ret = RHS->eval(C)));
+      return Ret;
+    }
+    if (auto Function = dynamic_cast<const CallExprAST *>(LHS.get())) {
+
+      auto Params = Function->getParams();
+
+      std::shared_ptr<AST> Body = std::move(RHS);
+
+      auto F = [Params = std::move(Params), Body](Calculator *C,
+                                                  std::vector<double> Args) {
+        auto _ = C->createScope();
+        const auto N = Params.size();
+        for (size_t I = 0; I != N; ++I) {
+          C->setLocalVar(Params[I], Args[I]);
+        }
+        return Body->eval(C);
+      };
+      C->setFunction(Function->getName(), std::move(F));
+      return 0;
+    }
+
+    throw CalculationError("Syntax Error ");
   }
 
   auto L = LHS->eval(C);
@@ -35,7 +64,7 @@ double CallExprAST::eval(Calculator *C) {
   ArgV.reserve(Args.size());
   for (auto &&X : Args)
     ArgV.push_back(X->eval(C));
-  return C->getFunction(Name)(std::move(ArgV));
+  return C->getFunction(Name)(C, std::move(ArgV));
 }
 
 struct Calculation {
@@ -110,7 +139,7 @@ struct Calculation {
     auto V = parseTerm();
 
     while (true) {
-      auto Op = peekToken(); 
+      auto Op = peekToken();
       if (Op == '+' || Op == '-') {
         eatToken();
         auto V2 = parseTerm();
@@ -124,7 +153,7 @@ struct Calculation {
   std::unique_ptr<AST> parseTerm() {
     auto V = parsePower();
     while (true) {
-			auto Op = peekToken(); 
+      auto Op = peekToken();
       if (Op == '*' || Op == '/') {
         eatToken();
         auto V2 = parsePower();
@@ -202,7 +231,8 @@ struct Calculation {
       if (peekToken() == ',')
         eatToken();
       else
-        throw CalculationError("unknown token: " + peekToken().getDescription());
+        throw CalculationError("unknown token: " +
+                               peekToken().getDescription());
     }
   }
 
@@ -214,7 +244,6 @@ struct Calculation {
     throw CalculationError("Unexpected trailing tokens " +
                            peekToken().getDescription());
   }
-
 };
 
 double Calculator::calculate(std::string Expr) {
@@ -223,12 +252,23 @@ double Calculator::calculate(std::string Expr) {
   return Ast->eval(this);
 }
 
-double Calculator::getValue(const std::string &Name) const {
-   try {
-     return Variables.at(Name);
-   } catch (std::out_of_range &) {
-     throw CalculationError("No such variable: " + Name);
-   }
+std::vector<std::string>
+Calculator::getCompletionList(const std::string &Text) const {
+  std::vector<std::string> Ret;
+
+  for (const auto &Scope : VariableScopes) {
+    for (const auto &Pair : Scope) {
+      if (Pair.first.find(Text) == 0 && Pair.first.length() != Text.length())
+        Ret.push_back(Pair.first);
+    }
+  }
+  for (const auto &Scope : FunctionScopes) {
+    for (const auto &Pair : Scope) {
+      if (Pair.first.find(Text) == 0 && Pair.first.length() != Text.length())
+        Ret.push_back(Pair.first);
+    }
+  }
+  return Ret;
 }
 
 } // namespace calc

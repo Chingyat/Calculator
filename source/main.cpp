@@ -17,8 +17,9 @@ bool readExpr(std::string &Expr) {
 }
 
 template <typename Callable>
-std::function<double(std::vector<double>)> UnaryFunction(Callable &&Func) {
-  return [Func = std::forward<Callable>(Func)](std::vector<double> args) {
+calc::Calculator::Function UnaryFunction(Callable &&Func) {
+  return [Func = std::forward<Callable>(Func)](calc::Calculator *C,
+                                               std::vector<double> args) {
     return Func(args[0]);
   };
 }
@@ -29,18 +30,9 @@ char *CompletionGenerator(const char *Text, int State) {
   static size_t MatchIndex = 0;
 
   if (State == 0) {
-    Matches.clear();
     MatchIndex = 0;
 
-    for (auto &&X : Calc.Variables) {
-      if (X.first.find(Text) == 0 && X.first != Text)
-        Matches.push_back(X.first);
-    }
-
-    for (auto &&X : Calc.Functions) {
-      if (X.first.find(Text) == 0 && X.first != Text)
-        Matches.push_back(X.first + '(');
-    }
+    Matches = Calc.getCompletionList(Text);
   }
 
   if (MatchIndex >= Matches.size()) {

@@ -4,8 +4,8 @@
 #include <functional>
 #include <map>
 #include <memory>
-#include <vector>
 #include <sstream>
+#include <vector>
 
 namespace calc {
 
@@ -113,29 +113,95 @@ public:
       : Name(std::move(Name)), Args(std::move(Args)) {}
 
   double eval(Calculator *C) final;
+
+  std::vector<std::string> getParams() const;
+
+  std::string const &getName() const & { return Name; }
 };
 
 class Calculator {
-public:
 
-  std::map<std::string, double> Variables;
-  std::map<std::string, std::function<double(std::vector<double>)>> Functions;
+public:
+  Calculator() {
+    FunctionScopes.emplace_back();
+    VariableScopes.emplace_back();
+  }
+  using Function = std::function<double(Calculator *, std::vector<double>)>;
+
+  std::vector<std::map<std::string, Function>> FunctionScopes;
+
+  std::vector<std::map<std::string, double>> VariableScopes;
+
+  struct ScopeGuard {
+    Calculator *Calc;
+
+    explicit ScopeGuard(Calculator *C) noexcept : Calc(C) {}
+
+    ~ScopeGuard() {
+      Calc->VariableScopes.pop_back();
+      Calc->FunctionScopes.pop_back();
+    }
+  };
+
+  auto createScope() {
+    VariableScopes.emplace_back();
+    FunctionScopes.emplace_back();
+    return ScopeGuard(this);
+  }
 
   double calculate(std::string Expr);
 
-  double getValue(const std::string &Name) const;
+  double getValue(const std::string &Name) const {
+    if (auto V = findVariable(Name))
+      return *V;
+    throw CalculationError("No such variable: " + Name);
+  }
 
   void setValue(const std::string &Name, double Value) {
-    Variables[Name] = Value;
+    if (auto V = findVariable(Name))
+      const_cast<double &>(*V) = Value;
+    VariableScopes.back()[Name] = Value;
   }
 
-  std::function<double(std::vector<double>)>
-  getFunction(const std::string &Name) const & {
-    return Functions.at(Name);
+  void setLocalVar(const std::string &Name, double Value) {
+    VariableScopes.back()[Name] = Value;
   }
 
-  template <typename F> auto setFunction(const std::string &Name, F &&Func) {
-    Functions[Name] = std::forward<F>(Func);
+  Function const &getFunction(const std::string &Name) const & {
+    static Function Empty;
+    if (auto F = findFunction(Name))
+      return *F;
+    return Empty;
+  }
+
+  template <typename Callable>
+  void setFunction(const std::string &Name, Callable &&Func) {
+    if (auto F = findFunction(Name))
+      const_cast<Function &>(*F) = std::forward<Callable>(Func);
+    FunctionScopes.back()[Name] = std::forward<Callable>(Func);
+  }
+
+  std::vector<std::string> getCompletionList(const std::string &Text) const;
+
+private:
+  const double *findVariable(const std::string &Name) const {
+    for (auto &&S : VariableScopes) {
+      auto It = S.find(Name);
+      if (It != S.cend()) {
+        return &It->second;
+      }
+    }
+    return nullptr;
+  }
+
+  const Function *findFunction(const std::string &Name) const {
+    for (auto &&S : FunctionScopes) {
+      auto It = S.find(Name);
+      if (It != S.cend()) {
+        return &It->second;
+      }
+    }
+    return nullptr;
   }
 };
 } // namespace calc
