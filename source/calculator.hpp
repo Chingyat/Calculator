@@ -12,6 +12,15 @@
 
 namespace calc {
 
+class CalculationError : public std::exception {
+  std::string Msg;
+
+public:
+  CalculationError(std::string Msg) : Msg(std::move(Msg)) {}
+
+  const char *what() const noexcept { return Msg.c_str(); }
+};
+
 enum TokenKind { TK_None = 0, TK_String = -1, TK_Number = -2, TK_END = -3 };
 
 struct Token {
@@ -74,7 +83,7 @@ public:
     if (Op == '-') {
       return -Operand->eval(C);
     }
-    assert(0 && "Unknown operator");
+    throw CalculationError(std::string("Unknown operator: ") + Op);
   }
 };
 
@@ -114,9 +123,9 @@ class Calculator {
   std::map<std::string, std::function<double(std::vector<double>)>> Functions;
 
 public:
-  double calculate(std::string Expr) noexcept;
+  double calculate(std::string Expr);
 
-  double getValue(const std::string &Name) const { return Variables.at(Name); }
+  double getValue(const std::string &Name) const;
 
   void setValue(const std::string &Name, double Value) {
     Variables[Name] = Value;

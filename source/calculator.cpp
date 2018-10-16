@@ -26,7 +26,7 @@ double BinExprAST::eval(Calculator *C) {
   case '^':
     return std::pow(L, R);
   default:
-    assert(0 && "Unknown operator");
+    throw CalculationError(std::string("Unknown operator: ") + Op);
   }
 }
 
@@ -200,7 +200,7 @@ struct Calculation {
       if (peekToken() == ',')
         eatToken();
       else
-        assert(0 && "unknown token");
+        throw CalculationError("unknown token: " + peekToken().getDescription());
     }
   }
 
@@ -213,20 +213,20 @@ struct Calculation {
                            peekToken().getDescription());
   }
 
-  class CalculationError : public std::exception {
-    std::string Msg;
-
-  public:
-    CalculationError(std::string Msg) : Msg(std::move(Msg)) {}
-
-    const char *what() const noexcept { return Msg.c_str(); }
-  };
 };
 
-double Calculator::calculate(std::string Expr) noexcept {
+double Calculator::calculate(std::string Expr) {
   Calculation C{std::istringstream(std::move(Expr))};
   auto Ast = C();
   return Ast->eval(this);
+}
+
+double Calculator::getValue(const std::string &Name) const {
+   try {
+     return Variables.at(Name);
+   } catch (std::out_of_range &) {
+     throw CalculationError("No such variable: " + Name);
+   }
 }
 
 } // namespace calc
