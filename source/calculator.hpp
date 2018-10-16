@@ -13,7 +13,7 @@ enum TokenKind { TK_None = 0, TK_String = -1, TK_Number = -2, TK_END = -3 };
 struct Token {
   int Kind;
 
-  std::string Str;
+  std::string Str{};
 
   bool operator==(std::string_view RHS) const noexcept {
     return Kind == TK_String && Str == RHS;
@@ -83,10 +83,10 @@ template <typename T> struct Calculation {
 
     if (C == EOF || C == '\n') {
       SS.unget();
-      return {TK_END, {}};
+      return {TK_END};
     }
 
-    return {C, {}};
+    return {C};
   }
 
   Token peekToken() {
@@ -141,6 +141,7 @@ template <typename T> struct Calculation {
 
   T parseParen() {
     if (auto Tok = peekToken(); Tok == '(') {
+	  eatToken();
       auto V = parseExpr();
       Tok = peekToken();
       assert(Tok == ')');
@@ -151,7 +152,7 @@ template <typename T> struct Calculation {
   }
 
   T parseLiteral() {
-    auto F = [&]() -> T (*)(T) {
+    auto F = [&]() -> T (*)(T) noexcept {
       if (auto Tok = peekToken(); Tok == '+') {
         eatToken();
         return [](T X) noexcept { return X; };
@@ -171,7 +172,7 @@ template <typename T> struct Calculation {
     if (Tok == TK_Number)
       V = Tok.template toNumber<T>();
     else
-      throw CalculationError(std::string() + "Unexpected number, but got " +
+      throw CalculationError("Expected number, but got " +
                              Tok.getDescription());
 
     return F(V);
@@ -182,7 +183,7 @@ template <typename T> struct Calculation {
     if (peekToken() == TK_END) {
       return V;
     }
-    throw CalculationError(std::string() + "Unexpected trailing tokens " +
+    throw CalculationError("Unexpected trailing tokens " +
                                peekToken().getDescription(),
                            V);
   }
@@ -197,14 +198,14 @@ template <typename T> struct Calculation {
 
     const char *what() const noexcept { return Msg.c_str(); }
 
-    const std::optional<T> &getResult() const & { return Result; }
+    const std::optional<T> &getResult() const & noexcept { return Result; }
   };
 };
 
 class Calculator {
 public:
-  template <typename T> std::future<T> calculate(std::string expr) noexcept {
-    return std::async(Calculation<T>{std::istringstream(std::move(expr))});
+  template <typename T> std::future<T> calculate(std::string Expr) noexcept {
+    return std::async(Calculation<T>{std::istringstream(std::move(Expr))});
   }
 };
 } // namespace calc
