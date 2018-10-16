@@ -185,21 +185,21 @@ public:
 
 private:
   const double *findVariable(const std::string &Name) const {
-    for (auto &&S : VariableScopes) {
-      auto It = S.find(Name);
-      if (It != S.cend()) {
-        return &It->second;
-      }
+    for (auto Scope = VariableScopes.crbegin(); Scope != VariableScopes.crend();
+         ++Scope) {
+      auto V = Scope->find(Name);
+      if (V != Scope->cend())
+        return &V->second;
     }
     return nullptr;
   }
 
   const Function *findFunction(const std::string &Name) const {
-    for (auto &&S : FunctionScopes) {
-      auto It = S.find(Name);
-      if (It != S.cend()) {
-        return &It->second;
-      }
+    for (auto Scope = FunctionScopes.crbegin(); Scope != FunctionScopes.crend();
+         ++Scope) {
+      auto F = Scope->find(Name);
+      if (F != Scope->cend())
+        return &F->second;
     }
     return nullptr;
   }
