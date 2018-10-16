@@ -2,13 +2,10 @@
 #include <cassert>
 #include <cmath>
 #include <functional>
-#include <future>
 #include <map>
 #include <memory>
-#include <optional>
+#include <vector>
 #include <sstream>
-#include <string_view>
-#include <variant>
 
 namespace calc {
 
@@ -28,7 +25,7 @@ struct Token {
 
   std::string Str{};
 
-  bool operator==(std::string_view RHS) const noexcept {
+  bool operator==(std::string const &RHS) const noexcept {
     return Kind == TK_String && Str == RHS;
   }
   bool operator==(int RHS) const noexcept { return Kind == RHS; }

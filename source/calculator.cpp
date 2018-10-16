@@ -98,7 +98,7 @@ struct Calculation {
   std::unique_ptr<AST> parseExpr() {
     auto LHS = parsePoly();
 
-    if (auto Op = peekToken(); Op == '=') {
+    if (peekToken() == '=') {
       eatToken();
       auto RHS = parseExpr();
       return std::make_unique<BinExprAST>(std::move(LHS), std::move(RHS), '=');
@@ -110,7 +110,8 @@ struct Calculation {
     auto V = parseTerm();
 
     while (true) {
-      if (auto Op = peekToken(); Op == '+' || Op == '-') {
+      auto Op = peekToken(); 
+      if (Op == '+' || Op == '-') {
         eatToken();
         auto V2 = parseTerm();
         V = std::make_unique<BinExprAST>(std::move(V), std::move(V2), Op.Kind);
@@ -123,7 +124,8 @@ struct Calculation {
   std::unique_ptr<AST> parseTerm() {
     auto V = parsePower();
     while (true) {
-      if (auto Op = peekToken(); Op == '*' || Op == '/') {
+			auto Op = peekToken(); 
+      if (Op == '*' || Op == '/') {
         eatToken();
         auto V2 = parsePower();
         V = std::make_unique<BinExprAST>(std::move(V), std::move(V2), Op.Kind);
@@ -135,7 +137,7 @@ struct Calculation {
 
   std::unique_ptr<AST> parsePower() {
     auto V = parseParen();
-    if (auto Op = peekToken(); Op == '^') {
+    if (peekToken() == '^') {
       eatToken();
       return std::make_unique<BinExprAST>(std::move(V), parsePower(), '^');
     }
@@ -143,10 +145,10 @@ struct Calculation {
   }
 
   std::unique_ptr<AST> parseParen() {
-    if (auto Tok = peekToken(); Tok == '(') {
+    if (peekToken() == '(') {
       eatToken();
       auto V = parseExpr();
-      Tok = peekToken();
+      auto Tok = peekToken();
       assert(Tok == ')');
       eatToken();
       return V;
