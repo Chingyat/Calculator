@@ -26,7 +26,7 @@ double BinExprAST::eval(Calculator *C) {
       const auto Params =
           std::make_shared<const decltype(Function->getParams())>(
               Function->getParams());
-      const std::shared_ptr<AST> Body(std::move(RHS));
+      const std::shared_ptr Body(std::move(RHS));
 
       auto F = [Params, Body](Calculator *C, std::vector<double> Args) {
         const auto _ = C->createScope();

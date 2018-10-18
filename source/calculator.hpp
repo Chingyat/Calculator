@@ -89,18 +89,6 @@ public:
 };
 
 class Calculator {
-
-public:
-  Calculator() {
-    FunctionScopes.emplace_back();
-    VariableScopes.emplace_back();
-  }
-  using Function = std::function<double(Calculator *, std::vector<double>)>;
-
-  std::vector<std::map<std::string, Function>> FunctionScopes;
-
-  std::vector<std::map<std::string, double>> VariableScopes;
-
   struct ScopeGuard {
     Calculator *Calc;
 
@@ -112,7 +100,10 @@ public:
     }
   };
 
-  auto createScope() {
+public:
+  using Function = std::function<double(Calculator *, std::vector<double>)>;
+
+  ScopeGuard createScope() {
     VariableScopes.emplace_back();
     FunctionScopes.emplace_back();
     return ScopeGuard(this);
@@ -153,6 +144,11 @@ public:
   std::vector<std::string> getCompletionList(const std::string &Text) const;
 
 private:
+  std::vector<std::map<std::string, Function>> FunctionScopes;
+  std::vector<std::map<std::string, double>> VariableScopes;
+
+  ScopeGuard _sg = createScope();
+
   const double *findVariable(const std::string &Name) const noexcept {
     for (auto Scope = VariableScopes.crbegin(); Scope != VariableScopes.crend();
          ++Scope) {
