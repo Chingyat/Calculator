@@ -5,34 +5,36 @@ double IdentifierAST::eval(Calculator *C) { return C->getValue(getName()); }
 
 std::vector<std::string> CallExprAST::getParams() const {
   std::vector<std::string> Ret;
+  Ret.reserve(Args.size());
   for (auto &&X : Args) {
-    Ret.push_back(dynamic_cast<const IdentifierAST &>(*X).getName());
+    Ret.emplace_back(dynamic_cast<const IdentifierAST &>(*X).getName());
   }
   return Ret;
 }
 
 double BinExprAST::eval(Calculator *C) {
   if (Op == '=') {
-    if (auto Identifier = dynamic_cast<const IdentifierAST *>(LHS.get())) {
+    if (const auto Identifier =
+            dynamic_cast<const IdentifierAST *>(LHS.get())) {
       double Ret;
       C->setValue(Identifier->getName(), (Ret = RHS->eval(C)));
       return Ret;
     }
-    if (auto Function = dynamic_cast<const CallExprAST *>(LHS.get())) {
+    if (const auto Function = dynamic_cast<const CallExprAST *>(LHS.get())) {
+      const auto Params =
+          std::make_shared<const decltype(Function->getParams())>(
+              Function->getParams());
+      const std::shared_ptr<AST> Body(std::move(RHS));
 
-      auto Params = Function->getParams();
-
-      std::shared_ptr<AST> Body = std::move(RHS);
-
-      auto F = [Params = std::move(Params), Body](Calculator *C,
-                                                  std::vector<double> Args) {
-        auto _ = C->createScope();
-        const auto N = Params.size();
+      auto F = [Params, Body](Calculator *C, std::vector<double> Args) {
+        const auto _ = C->createScope();
+        const auto N = Params->size();
         for (size_t I = 0; I != N; ++I) {
-          C->setLocalVar(Params[I], Args[I]);
+          C->setLocalVar(Params->at(I), Args[I]);
         }
         return Body->eval(C);
       };
+
       C->setFunction(Function->getName(), std::move(F));
       return 0;
     }
@@ -40,8 +42,8 @@ double BinExprAST::eval(Calculator *C) {
     throw CalculationError("Syntax Error ");
   }
 
-  auto L = LHS->eval(C);
-  auto R = RHS->eval(C);
+  const auto L = LHS->eval(C);
+  const auto R = RHS->eval(C);
 
   switch (Op) {
   case '+':

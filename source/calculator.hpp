@@ -30,7 +30,7 @@ struct Token {
   }
   bool operator==(int RHS) const noexcept { return Kind == RHS; }
 
-  double toNumber() const noexcept {
+  double toNumber() const {
     std::istringstream SS(Str);
     double N;
     SS >> N;
@@ -73,7 +73,7 @@ class UnaryExprAST : public AST {
   char Op;
 
 public:
-  UnaryExprAST(std::unique_ptr<AST> Operand, char Op)
+  UnaryExprAST(std::unique_ptr<AST> Operand, char Op) noexcept
       : Operand(std::move(Operand)), Op(Op) {}
 
   double eval(Calculator *C) final {
@@ -89,7 +89,8 @@ class BinExprAST : public AST {
   char Op;
 
 public:
-  BinExprAST(std::unique_ptr<AST> LHS, std::unique_ptr<AST> RHS, char Op)
+  BinExprAST(std::unique_ptr<AST> LHS, std::unique_ptr<AST> RHS,
+             char Op) noexcept
       : LHS(std::move(LHS)), RHS(std::move(RHS)), Op(Op) {}
 
   double eval(Calculator *C) final;
@@ -99,9 +100,9 @@ class ConstExpr : public AST {
   double Value;
 
 public:
-  explicit ConstExpr(double Value) : Value(Value) {}
+  explicit ConstExpr(double Value) noexcept : Value(Value) {}
 
-  double eval(Calculator *C) final { return Value; }
+  double eval(Calculator *C) noexcept final { return Value; }
 };
 
 class CallExprAST : public AST {
@@ -116,7 +117,7 @@ public:
 
   std::vector<std::string> getParams() const;
 
-  std::string const &getName() const & { return Name; }
+  std::string const &getName() const &noexcept { return Name; }
 };
 
 class Calculator {
@@ -184,7 +185,7 @@ public:
   std::vector<std::string> getCompletionList(const std::string &Text) const;
 
 private:
-  const double *findVariable(const std::string &Name) const {
+  const double *findVariable(const std::string &Name) const noexcept {
     for (auto Scope = VariableScopes.crbegin(); Scope != VariableScopes.crend();
          ++Scope) {
       auto V = Scope->find(Name);
@@ -194,7 +195,7 @@ private:
     return nullptr;
   }
 
-  const Function *findFunction(const std::string &Name) const {
+  const Function *findFunction(const std::string &Name) const noexcept {
     for (auto Scope = FunctionScopes.crbegin(); Scope != FunctionScopes.crend();
          ++Scope) {
       auto F = Scope->find(Name);
