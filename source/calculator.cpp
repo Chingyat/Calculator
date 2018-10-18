@@ -1,5 +1,7 @@
 #include "calculator.hpp"
 
+#include <set>
+
 namespace calc {
 double IdentifierAST::eval(Calculator *C) { return C->getValue(getName()); }
 
@@ -126,12 +128,10 @@ struct Calculation {
 
   void eatToken() { CurrentToken = parseToken(); }
 
-  std::unique_ptr<AST> parseBinExpr() {
+  std::unique_ptr<AST> parseExpr() {
     auto LHS = parseUnary();
     auto Tok = peekToken();
-    if (Tok.Kind > 0)
-      return parseBinExprRHS(std::move(LHS), 0);
-    return LHS;
+    return parseBinExprRHS(std::move(LHS), 0);
   }
 
   static int getPrecedence(const Token &Tok) {
@@ -142,13 +142,31 @@ struct Calculation {
     return Precedences.at(Tok.Kind);
   }
 
+  static bool isRightCombined(char C) noexcept {
+    static std::set<char> RightCombinedOps{'^'};
+    return RightCombinedOps.find(C) != RightCombinedOps.cend();
+  }
+
   std::unique_ptr<AST> parseBinExprRHS(std::unique_ptr<AST> LHS, int Prec) {
     auto Tok = peekToken();
-    if (Tok.Kind > 0) {
-      if (getPrecedence(Tok) > Prec) {
-        eatToken();
-        auto Expr = parseUnary();
+    while (true) {
+
+      try {
+        if (getPrecedence(Tok) < Prec)
+          return LHS;
+      } catch (std::out_of_range &) {
+        return LHS;
       }
+
+      eatToken();
+      auto RHS = parseUnary();
+      auto NextTok = peekToken();
+      if (NextTok.Kind > 0 &&
+          getPrecedence(NextTok) + isRightCombined(NextTok.Kind) > Prec)
+        RHS = parseBinExprRHS(std::move(RHS), getPrecedence(Tok) + 1);
+      LHS = std::make_unique<BinExprAST>(std::move(LHS), std::move(RHS),
+                                         Tok.Kind);
+      Tok = peekToken();
     }
   }
 
@@ -161,17 +179,18 @@ struct Calculation {
     return parsePrimary();
   }
 
-  std::unique_ptr<AST> parseExpr() {
-    auto LHS = parsePoly();
-
-    if (peekToken() == '=') {
-      eatToken();
-      auto RHS = parseExpr();
-      return std::make_unique<BinExprAST>(std::move(LHS), std::move(RHS), '=');
-    }
-    return LHS;
-  }
-
+  //  std::unique_ptr<AST> parseExpr() {
+  //    auto LHS = parsePoly();
+  //
+  //    if (peekToken() == '=') {
+  //      eatToken();
+  //      auto RHS = parseExpr();
+  //      return std::make_unique<BinExprAST>(std::move(LHS), std::move(RHS),
+  //      '=');
+  //    }
+  //    return LHS;
+  //  }
+  //
   std::unique_ptr<AST> parsePoly() {
     auto V = parseTerm();
 
