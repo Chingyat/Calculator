@@ -126,6 +126,41 @@ struct Calculation {
 
   void eatToken() { CurrentToken = parseToken(); }
 
+  std::unique_ptr<AST> parseBinExpr() {
+    auto LHS = parseUnary();
+    auto Tok = peekToken();
+    if (Tok.Kind > 0)
+      return parseBinExprRHS(std::move(LHS), 0);
+    return LHS;
+  }
+
+  static int getPrecedence(const Token &Tok) {
+    static std::map<char, unsigned> Precedences{
+        {'+', 10}, {'-', 10}, {'*', 20}, {'/', 20}, {'^', 30},
+    };
+
+    return Precedences.at(Tok.Kind);
+  }
+
+  std::unique_ptr<AST> parseBinExprRHS(std::unique_ptr<AST> LHS, int Prec) {
+    auto Tok = peekToken();
+    if (Tok.Kind > 0) {
+      if (getPrecedence(Tok) > Prec) {
+        eatToken();
+        auto Expr = parseUnary();
+      }
+    }
+  }
+
+  std::unique_ptr<AST> parseUnary() {
+    auto Tok = peekToken();
+    if (Tok == '-') {
+      eatToken();
+      return std::make_unique<UnaryExprAST>(parsePrimary(), '-');
+    }
+    return parsePrimary();
+  }
+
   std::unique_ptr<AST> parseExpr() {
     auto LHS = parsePoly();
 
