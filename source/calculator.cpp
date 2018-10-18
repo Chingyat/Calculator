@@ -162,8 +162,8 @@ struct Calculation {
       auto RHS = parseUnary();
       auto NextTok = peekToken();
       if (NextTok.Kind > 0 &&
-          getPrecedence(NextTok) + isRightCombined(NextTok.Kind) > Prec)
-        RHS = parseBinExprRHS(std::move(RHS), getPrecedence(Tok) + 1);
+          getPrecedence(NextTok) > Prec)
+        RHS = parseBinExprRHS(std::move(RHS), getPrecedence(Tok) + 1 - isRightCombined(NextTok.Kind));
       LHS = std::make_unique<BinExprAST>(std::move(LHS), std::move(RHS),
                                          Tok.Kind);
       Tok = peekToken();
