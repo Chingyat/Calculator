@@ -18,9 +18,9 @@ double BinExprAST::eval(Calculator *C) {
   if (Op == '=') {
     if (const auto Identifier =
             dynamic_cast<const IdentifierAST *>(LHS.get())) {
-      double Ret;
-      C->setValue(Identifier->getName(), (Ret = RHS->eval(C)));
-      return Ret;
+      const auto V = RHS->eval(C);
+      C->setValue(Identifier->getName(), V);
+      return V;
     }
     if (const auto Function = dynamic_cast<const CallExprAST *>(LHS.get())) {
       const auto Params =
@@ -83,12 +83,7 @@ struct Token {
   }
   bool operator==(int RHS) const noexcept { return Kind == RHS; }
 
-  double toNumber() const {
-    std::istringstream SS(Str);
-    double N;
-    SS >> N;
-    return N;
-  }
+  double toNumber() const { return std::stod(Str); }
 
   std::string getDescription() const {
     if (Kind == TK_String)
@@ -96,7 +91,8 @@ struct Token {
     if (Kind == TK_Number)
       return Str;
     if (Kind > 0)
-      return std::string() + static_cast<char>(Kind);
+      return std::string("`") + static_cast<char>(Kind) + "' (" +
+             std::to_string(Kind) + ')';
     if (Kind == TK_END)
       return "<END>";
     return "<Err>";
@@ -160,7 +156,7 @@ struct Calculation {
 
   void eatToken() { CurrentToken = parseToken(); }
 
-  std::unique_ptr<AST> parseExpr() { return parseBinExprRHS(parseUnary(), 0); }
+  std::unique_ptr<AST> parseExpr() { return parseBinOpRHS(parseUnary(), 0); }
 
   static const std::map<char, unsigned> Precedences;
 
@@ -178,7 +174,7 @@ struct Calculation {
     return RightCombinedOps.find(C) != RightCombinedOps.cend();
   }
 
-  std::unique_ptr<AST> parseBinExprRHS(std::unique_ptr<AST> LHS, int Prec) {
+  std::unique_ptr<AST> parseBinOpRHS(std::unique_ptr<AST> LHS, int Prec) {
     while (true) {
       const auto Tok = peekToken();
       if (!isBinOp(Tok) || getPrecedence(Tok) < Prec)
@@ -189,9 +185,9 @@ struct Calculation {
       const auto NextTok = peekToken();
 
       if (isBinOp(NextTok) && getPrecedence(NextTok) > Prec)
-        RHS = parseBinExprRHS(std::move(RHS),
-                              getPrecedence(Tok) +
-                                  (isRightCombined(NextTok.Kind) ? 0 : 1));
+        RHS = parseBinOpRHS(std::move(RHS),
+                            getPrecedence(Tok) +
+                                (isRightCombined(NextTok.Kind) ? 0 : 1));
 
       LHS = std::make_unique<BinExprAST>(std::move(LHS), std::move(RHS),
                                          Tok.Kind);
@@ -216,17 +212,16 @@ struct Calculation {
     }
     if (Tok == TK_String) {
       eatToken();
-      auto StrTok = std::make_unique<IdentifierAST>(Tok.Str);
+      auto Identifier = std::make_unique<IdentifierAST>(Tok.Str);
       if (peekToken() == '(') {
         eatToken();
         auto Args = parseArgList();
         assert(peekToken() == ')');
         eatToken();
-        return std::make_unique<CallExprAST>(
-            static_cast<IdentifierAST const &>(*StrTok).getName(),
-            std::move(Args));
+        return std::make_unique<CallExprAST>(Identifier->getName(),
+                                             std::move(Args));
       }
-      return StrTok;
+      return Identifier;
     } else if (Tok == '(') {
       eatToken();
       auto Ret = parseExpr();
@@ -273,7 +268,7 @@ const std::set<char> Calculation::RightCombinedOps{'^', '='};
 
 double Calculator::calculate(std::string Expr) {
   Calculation C{std::istringstream(std::move(Expr))};
-  auto Ast = C();
+  const auto Ast = C();
   return Ast->eval(this);
 }
 

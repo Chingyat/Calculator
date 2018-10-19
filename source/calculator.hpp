@@ -15,7 +15,7 @@ class CalculationError : public std::exception {
 public:
   CalculationError(std::string Msg) : Msg(std::move(Msg)) {}
 
-  const char *what() const noexcept { return Msg.c_str(); }
+  const char *what() const noexcept override { return Msg.c_str(); }
 };
 
 class Calculator;
