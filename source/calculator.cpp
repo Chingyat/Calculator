@@ -136,14 +136,14 @@ struct Calculation {
 
   static int getPrecedence(const Token &Tok) {
     static std::map<char, unsigned> Precedences{
-        {'+', 10}, {'-', 10}, {'*', 20}, {'/', 20}, {'^', 30},
+        {'=', 10}, {'+', 20}, {'-', 20}, {'*', 30}, {'/', 30}, {'^', 40},
     };
 
     return Precedences.at(Tok.Kind);
   }
 
   static bool isRightCombined(char C) noexcept {
-    static std::set<char> RightCombinedOps{'^'};
+    static std::set<char> RightCombinedOps{'^', '='};
     return RightCombinedOps.find(C) != RightCombinedOps.cend();
   }
 
@@ -161,9 +161,14 @@ struct Calculation {
       eatToken();
       auto RHS = parseUnary();
       auto NextTok = peekToken();
-      if (NextTok.Kind > 0 &&
-          getPrecedence(NextTok) > Prec)
-        RHS = parseBinExprRHS(std::move(RHS), getPrecedence(Tok) + 1 - isRightCombined(NextTok.Kind));
+      try {
+        if (getPrecedence(NextTok) > Prec)
+          RHS = parseBinExprRHS(std::move(RHS),
+                                getPrecedence(Tok) + 1 -
+                                    isRightCombined(NextTok.Kind));
+      } catch (std::out_of_range &) {
+        ;
+      }
       LHS = std::make_unique<BinExprAST>(std::move(LHS), std::move(RHS),
                                          Tok.Kind);
       Tok = peekToken();
@@ -171,7 +176,7 @@ struct Calculation {
   }
 
   std::unique_ptr<AST> parseUnary() {
-    auto Tok = peekToken();
+    const auto Tok = peekToken();
     if (Tok == '-') {
       eatToken();
       return std::make_unique<UnaryExprAST>(parsePrimary(), '-');
@@ -179,100 +184,36 @@ struct Calculation {
     return parsePrimary();
   }
 
-  //  std::unique_ptr<AST> parseExpr() {
-  //    auto LHS = parsePoly();
-  //
-  //    if (peekToken() == '=') {
-  //      eatToken();
-  //      auto RHS = parseExpr();
-  //      return std::make_unique<BinExprAST>(std::move(LHS), std::move(RHS),
-  //      '=');
-  //    }
-  //    return LHS;
-  //  }
-  //
-  std::unique_ptr<AST> parsePoly() {
-    auto V = parseTerm();
-
-    while (true) {
-      auto Op = peekToken();
-      if (Op == '+' || Op == '-') {
-        eatToken();
-        auto V2 = parseTerm();
-        V = std::make_unique<BinExprAST>(std::move(V), std::move(V2), Op.Kind);
-        continue;
-      }
-      return V;
-    }
-  }
-
-  std::unique_ptr<AST> parseTerm() {
-    auto V = parsePower();
-    while (true) {
-      auto Op = peekToken();
-      if (Op == '*' || Op == '/') {
-        eatToken();
-        auto V2 = parsePower();
-        V = std::make_unique<BinExprAST>(std::move(V), std::move(V2), Op.Kind);
-        continue;
-      }
-      return V;
-    }
-  }
-
-  std::unique_ptr<AST> parsePower() {
-    auto V = parseParen();
-    if (peekToken() == '^') {
-      eatToken();
-      return std::make_unique<BinExprAST>(std::move(V), parsePower(), '^');
-    }
-    return V;
-  }
-
-  std::unique_ptr<AST> parseParen() {
-    if (peekToken() == '(') {
-      eatToken();
-      auto V = parseExpr();
-      auto Tok = peekToken();
-      assert(Tok == ')');
-      eatToken();
-      return V;
-    }
-    return parsePrimary();
-  }
-
   std::unique_ptr<AST> parsePrimary() {
-    auto UnaryOp = peekToken();
-    if (UnaryOp == '-' || UnaryOp == '+')
+    Token Tok = peekToken();
+
+    if (Tok == TK_Number) {
       eatToken();
-    else
-      UnaryOp.Kind = 0;
-
-    auto Tok = peekToken();
-    eatToken();
-
-    std::unique_ptr<AST> Ret;
-
-    if (Tok == TK_Number)
-      Ret = std::make_unique<ConstExpr>(Tok.toNumber());
-    else if (Tok == TK_String) {
-      Ret = std::make_unique<IdentifierAST>(Tok.Str);
+      return std::make_unique<ConstExpr>(Tok.toNumber());
+    }
+    if (Tok == TK_String) {
+      eatToken();
+      auto StrTok = std::make_unique<IdentifierAST>(Tok.Str);
       if (peekToken() == '(') {
         eatToken();
         auto Args = parseArgList();
         assert(peekToken() == ')');
         eatToken();
-        Ret = std::make_unique<CallExprAST>(
-            dynamic_cast<IdentifierAST const &>(*Ret).getName(),
+        return std::make_unique<CallExprAST>(
+            static_cast<IdentifierAST const &>(*StrTok).getName(),
             std::move(Args));
       }
+      return StrTok;
+    } else if (Tok == '(') {
+      eatToken();
+      auto Ret = parseExpr();
+      Tok = peekToken();
+      assert(Tok == ')');
+      eatToken();
+      return Ret;
     } else
       throw CalculationError("Expected number, but got " +
                              Tok.getDescription());
-
-    if (UnaryOp == 0)
-      return Ret;
-    return std::make_unique<UnaryExprAST>(std::move(Ret), UnaryOp.Kind);
   }
 
   std::vector<std::unique_ptr<AST>> parseArgList() {
