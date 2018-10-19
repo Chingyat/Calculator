@@ -71,12 +71,44 @@ double CallExprAST::eval(Calculator *C) {
   return C->getFunction(Name)(C, std::move(ArgV));
 }
 
+enum TokenKind { TK_None = 0, TK_String = -1, TK_Number = -2, TK_END = -3 };
+
+struct Token {
+  int Kind;
+
+  std::string Str{};
+
+  bool operator==(std::string const &RHS) const noexcept {
+    return Kind == TK_String && Str == RHS;
+  }
+  bool operator==(int RHS) const noexcept { return Kind == RHS; }
+
+  double toNumber() const {
+    std::istringstream SS(Str);
+    double N;
+    SS >> N;
+    return N;
+  }
+
+  std::string getDescription() const {
+    if (Kind == TK_String)
+      return Str;
+    if (Kind == TK_Number)
+      return Str;
+    if (Kind > 0)
+      return std::string() + static_cast<char>(Kind);
+    if (Kind == TK_END)
+      return "<END>";
+    return "<Err>";
+  }
+};
+
 struct Calculation {
   using result_type = double;
 
   std::istringstream SS;
 
-  Token CurrentToken = {0, {}};
+  Token CurrentToken = {0};
 
   Token parseToken() {
     int C;
@@ -128,50 +160,41 @@ struct Calculation {
 
   void eatToken() { CurrentToken = parseToken(); }
 
-  std::unique_ptr<AST> parseExpr() {
-    auto LHS = parseUnary();
-    auto Tok = peekToken();
-    return parseBinExprRHS(std::move(LHS), 0);
+  std::unique_ptr<AST> parseExpr() { return parseBinExprRHS(parseUnary(), 0); }
+
+  static const std::map<char, unsigned> Precedences;
+
+  static bool isBinOp(const Token &Tok) noexcept {
+    return Precedences.find(Tok.Kind) != Precedences.cend();
   }
 
   static int getPrecedence(const Token &Tok) {
-    static std::map<char, unsigned> Precedences{
-        {'=', 10}, {'+', 20}, {'-', 20}, {'*', 30}, {'/', 30}, {'^', 40},
-    };
-
     return Precedences.at(Tok.Kind);
   }
 
+  static const std::set<char> RightCombinedOps;
+
   static bool isRightCombined(char C) noexcept {
-    static std::set<char> RightCombinedOps{'^', '='};
     return RightCombinedOps.find(C) != RightCombinedOps.cend();
   }
 
   std::unique_ptr<AST> parseBinExprRHS(std::unique_ptr<AST> LHS, int Prec) {
-    auto Tok = peekToken();
     while (true) {
-
-      try {
-        if (getPrecedence(Tok) < Prec)
-          return LHS;
-      } catch (std::out_of_range &) {
+      const auto Tok = peekToken();
+      if (!isBinOp(Tok) || getPrecedence(Tok) < Prec)
         return LHS;
-      }
 
       eatToken();
       auto RHS = parseUnary();
-      auto NextTok = peekToken();
-      try {
-        if (getPrecedence(NextTok) > Prec)
-          RHS = parseBinExprRHS(std::move(RHS),
-                                getPrecedence(Tok) + 1 -
-                                    isRightCombined(NextTok.Kind));
-      } catch (std::out_of_range &) {
-        ;
-      }
+      const auto NextTok = peekToken();
+
+      if (isBinOp(NextTok) && getPrecedence(NextTok) > Prec)
+        RHS = parseBinExprRHS(std::move(RHS),
+                              getPrecedence(Tok) +
+                                  (isRightCombined(NextTok.Kind) ? 0 : 1));
+
       LHS = std::make_unique<BinExprAST>(std::move(LHS), std::move(RHS),
                                          Tok.Kind);
-      Tok = peekToken();
     }
   }
 
@@ -185,7 +208,7 @@ struct Calculation {
   }
 
   std::unique_ptr<AST> parsePrimary() {
-    Token Tok = peekToken();
+    const auto Tok = peekToken();
 
     if (Tok == TK_Number) {
       eatToken();
@@ -207,8 +230,7 @@ struct Calculation {
     } else if (Tok == '(') {
       eatToken();
       auto Ret = parseExpr();
-      Tok = peekToken();
-      assert(Tok == ')');
+      assert(peekToken() == ')');
       eatToken();
       return Ret;
     } else
@@ -218,7 +240,7 @@ struct Calculation {
 
   std::vector<std::unique_ptr<AST>> parseArgList() {
     std::vector<std::unique_ptr<AST>> Ret;
-    auto Tok = peekToken();
+    const auto Tok = peekToken();
     if (Tok == ')')
       return Ret;
     while (true) {
@@ -242,6 +264,12 @@ struct Calculation {
                            peekToken().getDescription());
   }
 };
+
+const std::map<char, unsigned> Calculation::Precedences{
+    {'=', 10}, {'+', 20}, {'-', 20}, {'*', 30}, {'/', 30}, {'^', 40},
+};
+
+const std::set<char> Calculation::RightCombinedOps{'^', '='};
 
 double Calculator::calculate(std::string Expr) {
   Calculation C{std::istringstream(std::move(Expr))};

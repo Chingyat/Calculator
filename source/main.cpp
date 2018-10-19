@@ -18,7 +18,7 @@ bool readExpr(std::string &Expr) {
 
 template <typename Callable>
 calc::Calculator::Function UnaryFunction(Callable &&Func) {
-  return [Func = std::forward<Callable>(Func)](calc::Calculator *C,
+  return [Func = std::forward<Callable>(Func)](calc::Calculator *,
                                                std::vector<double> args) {
     return Func(args[0]);
   };

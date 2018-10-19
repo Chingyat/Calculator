@@ -18,38 +18,6 @@ public:
   const char *what() const noexcept { return Msg.c_str(); }
 };
 
-enum TokenKind { TK_None = 0, TK_String = -1, TK_Number = -2, TK_END = -3 };
-
-struct Token {
-  int Kind;
-
-  std::string Str{};
-
-  bool operator==(std::string const &RHS) const noexcept {
-    return Kind == TK_String && Str == RHS;
-  }
-  bool operator==(int RHS) const noexcept { return Kind == RHS; }
-
-  double toNumber() const {
-    std::istringstream SS(Str);
-    double N;
-    SS >> N;
-    return N;
-  }
-
-  std::string getDescription() const {
-    if (Kind == TK_String)
-      return Str;
-    if (Kind == TK_Number)
-      return Str;
-    if (Kind > 0)
-      return std::string() + static_cast<char>(Kind);
-    if (Kind == TK_END)
-      return "<END>";
-    return "<Err>";
-  }
-};
-
 class Calculator;
 
 class AST {
@@ -102,7 +70,7 @@ class ConstExpr : public AST {
 public:
   explicit ConstExpr(double Value) noexcept : Value(Value) {}
 
-  double eval(Calculator *C) noexcept final { return Value; }
+  double eval(Calculator *) noexcept final { return Value; }
 };
 
 class CallExprAST : public AST {
