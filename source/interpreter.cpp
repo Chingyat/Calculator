@@ -38,13 +38,13 @@ Interpreter::getCompletionList(const std::string &Text) const
 {
     std::set<std::string> Ret;
 
-    for (const auto &Scope : VariableScopes) {
+    for (const auto &Scope : ValueNS) {
         for (const auto &Pair : Scope) {
             if (Pair.first.find(Text) == 0 && Pair.first.length() != Text.length())
                 Ret.insert(Pair.first);
         }
     }
-    for (const auto &Scope : FunctionScopes) {
+    for (const auto &Scope : FunctionNS) {
         for (const auto &Pair : Scope) {
             if (Pair.first.find(Text) == 0 && Pair.first.length() != Text.length())
                 Ret.insert(Pair.first);

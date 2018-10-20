@@ -33,6 +33,8 @@ struct Value {
             return "<Function>";
         if (Data.type() == typeid(double))
             return std::to_string(std::any_cast<double>(Data));
+        if (Data.type() == typeid(long double))
+            return std::to_string(std::any_cast<long double>(Data));
         if (Data.type() == typeid(int))
             return std::to_string(std::any_cast<int>(Data));
         if (Data.type() == typeid(std::string))

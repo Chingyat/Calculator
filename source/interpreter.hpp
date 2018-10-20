@@ -16,7 +16,45 @@ namespace lince {
 
 class AST;
 
-class Interpreter {
+template <typename Impl>
+class ModuleBase {
+    const Impl *self() const { return static_cast<Impl const *>(this); }
+    Impl *self() { return static_cast<Impl *>(this); }
+
+public:
+    std::multimap<std::string, Function> getFunctionNS() &&
+    {
+        return std::move(self()->FunctionNS[0]);
+    }
+
+    std::map<std::string, Value> getValueNS() &&
+    {
+        return std::move(self()->ValueNS[0]);
+    }
+
+    const Function &addFunction(const std::string &Name, Function TheFunction)
+    {
+        auto It = self()->FunctionNS[0].emplace(Name, std::move(TheFunction));
+        return It->second;
+    }
+
+    const Value &addValue(const std::string &Name, Value TheValue)
+    {
+        return self()->ValueNS[0].emplace(Name, std::move(TheValue)).first->second;
+    }
+};
+
+class Module : public ModuleBase<Module> {
+    std::multimap<std::string, Function> FunctionNS[1];
+    std::map<std::string, Value> ValueNS[1];
+    friend class ModuleBase<Module>;
+
+public:
+};
+
+class Interpreter : public ModuleBase<Interpreter> {
+    friend class ModuleBase<Interpreter>;
+
 public:
     struct ScopeGuard {
         Interpreter *Calc;
@@ -28,15 +66,15 @@ public:
 
         ~ScopeGuard()
         {
-            Calc->VariableScopes.pop_back();
-            Calc->FunctionScopes.pop_back();
+            Calc->ValueNS.pop_back();
+            Calc->FunctionNS.pop_back();
         }
     };
 
     ScopeGuard createScope()
     {
-        VariableScopes.emplace_back();
-        FunctionScopes.emplace_back();
+        ValueNS.emplace_back();
+        FunctionNS.emplace_back();
         return ScopeGuard(this);
     }
 
@@ -56,12 +94,12 @@ public:
         if (auto Var = findVariable(Name))
             return const_cast<Value &>(*Var) = std::move(V);
 
-        return VariableScopes.back()[Name] = std::move(V);
+        return ValueNS.back()[Name] = std::move(V);
     }
 
-    const Value &setLocalVar(const std::string &Name, Value V)
+    const Value &addLocalValue(const std::string &Name, Value V)
     {
-        return VariableScopes.back()[Name] = std::move(V);
+        return ValueNS.back()[Name] = std::move(V);
     }
 
     Function const &getFunction(const std::string &Name, std::vector<std::type_index> const &Type) const &
@@ -76,9 +114,9 @@ public:
         return *It;
     }
 
-    const Function &setFunction(const std::string &Name, Function Func)
+    const Function &addLocalFunction(const std::string &Name, Function Func)
     {
-        auto It = FunctionScopes.back().emplace(Name, std::move(Func));
+        auto It = FunctionNS.back().emplace(Name, std::move(Func));
         return It->second;
     }
 
@@ -86,10 +124,17 @@ public:
 
     std::set<std::string> getCompletionList(const std::string &Text) const;
 
+    template <typename ModuleImpl>
+    void addModule(ModuleBase<ModuleImpl> &&M)
+    {
+        FunctionNS.emplace_back(std::move(M).getFunctionNS());
+        ValueNS.emplace_back(std::move(M).getValueNS());
+    }
+
 private:
     const Value *findVariable(const std::string &Name) const noexcept
     {
-        for (auto Scope = VariableScopes.crbegin(); Scope != VariableScopes.crend();
+        for (auto Scope = ValueNS.crbegin(); Scope != ValueNS.crend();
              ++Scope) {
             const auto V = Scope->find(Name);
             if (V != Scope->cend())
@@ -101,7 +146,7 @@ private:
     auto findFunctions(const std::string &Name) const noexcept -> std::vector<std::reference_wrapper<const Function>>
     {
         std::vector<std::reference_wrapper<const Function>> Ret;
-        std::for_each(FunctionScopes.crbegin(), FunctionScopes.crend(), [&](const auto &Scope) {
+        std::for_each(FunctionNS.crbegin(), FunctionNS.crend(), [&](const auto &Scope) {
             auto [Begin, End] = Scope.equal_range(Name);
             std::for_each(Begin, End, [&](const auto &Pair) {
                 Ret.emplace_back(Pair.second);
@@ -110,8 +155,8 @@ private:
         return Ret;
     }
 
-    std::vector<std::multimap<std::string, Function>> FunctionScopes;
-    std::vector<std::map<std::string, Value>> VariableScopes;
+    std::vector<std::multimap<std::string, Function>> FunctionNS;
+    std::vector<std::map<std::string, Value>> ValueNS;
 
     ScopeGuard SG = createScope();
 };
@@ -125,7 +170,7 @@ inline Function DynamicFunction(std::vector<std::string> Params, std::unique_ptr
         const auto _ = C->createScope();
         const auto N = Params->size();
         for (size_t I = 0; I != N; ++I) {
-            C->setLocalVar(Params->at(I), Args[I]);
+            C->addLocalValue(Params->at(I), Args[I]);
         }
         return Body->eval(C);
     };

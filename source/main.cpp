@@ -68,28 +68,36 @@ char *CompletionGenerator(const char *Text, int State)
 
 int main()
 {
-    Calc.setValue("pi", { 3.1415926535897 });
-    Calc.setValue("e", { 2.718 });
-    Calc.setFunction("sqrt",
-        UnaryFunction(static_cast<double (*)(double)>(std::sqrt)));
-    Calc.setFunction("exp",
-        UnaryFunction(static_cast<double (*)(double)>(std::exp)));
-    
-    Calc.setFunction("operator-", BinaryFunction(std::minus<>()));
-    Calc.setFunction("operator+", BinaryFunction(std::plus<>()));
-    Calc.setFunction("operator*", BinaryFunction(std::multiplies<>()));
-    Calc.setFunction("operator/", BinaryFunction(std::divides<>()));
-    Calc.setFunction("operator^", BinaryFunction(static_cast<double (*)(double, double)>(std::pow)));
+    lince::Module M;
+    M.addValue("pi", { 3.1415926535897 });
+    M.addValue("e", { 2.7182818284590 });
+    M.addValue("phi", { 0.618033988 });
+    M.addFunction("sqrt", UnaryFunction(static_cast<double (*)(double)>(std::sqrt)));
+    M.addFunction("exp", UnaryFunction(static_cast<double (*)(double)>(std::exp)));
+    M.addFunction("sin", UnaryFunction(static_cast<double (*)(double)>(std::sin)));
+    M.addFunction("cos", UnaryFunction(static_cast<double (*)(double)>(std::cos)));
+    M.addFunction("tan", UnaryFunction(static_cast<double (*)(double)>(std::tan)));
+    M.addFunction("cbrt", UnaryFunction(static_cast<double (*)(double)>(std::cbrt)));
+    M.addFunction("abs", UnaryFunction(static_cast<double (*)(double)>(std::abs)));
+    M.addFunction("log", UnaryFunction(static_cast<double (*)(double)>(std::log)));
+    M.addFunction("log10", UnaryFunction(static_cast<double (*)(double)>(std::log10)));
+
+    M.addFunction("operator-", BinaryFunction(std::minus<>()));
+    M.addFunction("operator+", BinaryFunction(std::plus<>()));
+    M.addFunction("operator*", BinaryFunction(std::multiplies<>()));
+    M.addFunction("operator/", BinaryFunction(std::divides<>()));
+    M.addFunction("operator^", BinaryFunction(static_cast<double (*)(double, double)>(std::pow)));
+
+    Calc.addModule(std::move(M));
 
     std::string Expr;
 
     ::rl_attempted_completion_function = [](const char *Text, int, int) {
-        rl_attempted_completion_over = 1;
+        rl_attempted_completion_over = true;
         return rl_completion_matches(Text, CompletionGenerator);
     };
 
     while (readExpr(Expr)) {
-
         try {
             auto AST = Calc.parse(Expr);
             lince::Value V;
