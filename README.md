@@ -1,4 +1,4 @@
-# Calculator
-Command line calculator in C++
+# Interpreter
+Command line Interpreter in C++
 
 ![demo](calc-demo.gif)
