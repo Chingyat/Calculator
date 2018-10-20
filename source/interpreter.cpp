@@ -53,4 +53,21 @@ Interpreter::getCompletionList(const std::string &Text) const
     return Ret;
 }
 
+Function DynamicFunction(std::vector<std::string> Params, std::unique_ptr<AST> Body)
+{
+    std::vector<std::type_index> Type(Params.size() + 1, typeid(Value));
+
+    auto Data = [Params = std::make_shared<std::vector<std::string>>(std::move(Params)), Body = std::shared_ptr(std::move(Body))](
+                    Interpreter *C, std::vector<Value> Args) {
+        const auto _ = C->createScope();
+        const auto N = Params->size();
+        for (size_t I = 0; I != N; ++I) {
+            C->addLocalValue(Params->at(I), Args[I]);
+        }
+        return Body->eval(C);
+    };
+
+    return { Data, Type };
+}
+
 } // namespace lince

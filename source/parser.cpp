@@ -19,7 +19,7 @@ const std::set<char> Parser::RightCombinedOps{ '^', '=' };
 
 std::string Token::descriptionof() const
 {
-    if (Kind == TK_String)
+    if (Kind == TK_Identifier)
         return Str;
     if (Kind == TK_Number)
         return Str;
@@ -51,6 +51,17 @@ Token Parser::parseToken()
     while (std::isspace((C = SS.get())))
         ;
 
+    if (C == '"' || C == '\'') {
+        const char Quote = C;
+        std::string S;
+        while (true) {
+            C = SS.get();
+            if (C == Quote && (S.empty() || S.back() != '\\'))
+                return { TK_String, std::move(S) };
+            S.push_back(C);
+        }
+    }
+
     if (std::isalpha(C)) {
         std::string S;
         S.push_back(C);
@@ -63,7 +74,7 @@ Token Parser::parseToken()
             It != Keywords.cend())
             return { It->second, It->first };
 
-        return { TK_String, std::move(S) };
+        return { TK_Identifier, std::move(S) };
     }
 
     if (std::isdigit(C) || C == '.') {
@@ -133,11 +144,15 @@ std::unique_ptr<AST> Parser::parsePrimary()
 {
     const auto Tok = peekToken();
 
+    if (Tok == TK_String) {
+        eatToken();
+        return std::make_unique<ConstExprAST>(Value{ Tok.Str });
+    }
     if (Tok == TK_Number) {
         eatToken();
         return std::make_unique<ConstExprAST>(Value{ Tok.numberof() });
     }
-    if (Tok == TK_String) {
+    if (Tok == TK_Identifier) {
         eatToken();
         auto Identifier = std::make_unique<IdentifierAST>(Tok.Str);
         if (peekToken() == '(') {
@@ -149,21 +164,34 @@ std::unique_ptr<AST> Parser::parsePrimary()
                 std::move(Args));
         }
         return Identifier;
-    } else if (Tok == TK_True) {
+    }
+    if (Tok == TK_True) {
         eatToken();
         return std::make_unique<ConstExprAST>(Value{ true });
-    } else if (Tok == TK_False) {
+    }
+    if (Tok == TK_False) {
         eatToken();
         return std::make_unique<ConstExprAST>(Value{ false });
-    } else if (Tok == TK_Nil) {
+    }
+    if (Tok == TK_Nil) {
         eatToken();
         return std::make_unique<ConstExprAST>(Value{});
-    } else if (Tok == '(') {
+    }
+    if (Tok == '(') {
         eatToken();
-        auto Ret = parseExpr();
+        auto ParenExpr = parseExpr();
         assert(peekToken() == ')');
         eatToken();
-        return Ret;
+
+        if (peekToken() == '(') {
+            eatToken();
+            auto Args = parseArgList();
+            assert(peekToken() == ')');
+            eatToken();
+            return std::make_unique<LambdaCallExpr>(std::move(ParenExpr), std::move(Args));
+        }
+
+        return ParenExpr;
     } else
         throw ParseError("Expected primary expression, but got " + Tok.descriptionof());
 }

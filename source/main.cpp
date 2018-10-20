@@ -20,31 +20,30 @@ bool readExpr(std::string &Expr)
     return true;
 }
 
-template <typename Callable>
+template <typename Type, typename Callable>
 lince::Function UnaryFunction(Callable &&Func)
 {
     return { [Func = std::forward<Callable>(Func)](lince::Interpreter *,
                  std::vector<lince::Value> args) -> lince::Value {
                 return { { Func(
-                    std::any_cast<double>(args[0].Data)) } };
+                    std::any_cast<
+                        std::tuple_element_t<0, typename lince::Signature<Type>::Arguments>>(args[0].Data)) } };
             },
-        std::vector<std::type_index>{
-            typeid(double), typeid(double) } };
+        lince::Signature<Type>::TypeIndices() };
 }
 
-template <typename Callable>
+template <typename Type, typename Callable>
 lince::Function BinaryFunction(Callable &&Func)
 {
     return { [Func = std::forward<Callable>(Func)](lince::Interpreter *,
                  std::vector<lince::Value> args) -> lince::Value {
                 return { { Func(
-                    std::any_cast<double>(args[0].Data),
-                    std::any_cast<double>(args[1].Data)) } };
+                    std::any_cast<
+                        std::tuple_element_t<0, typename lince::Signature<Type>::Arguments>>(args[0].Data),
+                    std::any_cast<
+                        std::tuple_element_t<1, typename lince::Signature<Type>::Arguments>>(args[1].Data)) } };
             },
-        std::vector<std::type_index>{
-            typeid(double),
-            typeid(double),
-            typeid(double) } };
+        lince::Signature<Type>::TypeIndices() };
 }
 
 lince::Interpreter Calc;
@@ -72,21 +71,24 @@ int main()
     M.addValue("pi", { 3.1415926535897 });
     M.addValue("e", { 2.7182818284590 });
     M.addValue("phi", { 0.618033988 });
-    M.addFunction("sqrt", UnaryFunction(static_cast<double (*)(double)>(std::sqrt)));
-    M.addFunction("exp", UnaryFunction(static_cast<double (*)(double)>(std::exp)));
-    M.addFunction("sin", UnaryFunction(static_cast<double (*)(double)>(std::sin)));
-    M.addFunction("cos", UnaryFunction(static_cast<double (*)(double)>(std::cos)));
-    M.addFunction("tan", UnaryFunction(static_cast<double (*)(double)>(std::tan)));
-    M.addFunction("cbrt", UnaryFunction(static_cast<double (*)(double)>(std::cbrt)));
-    M.addFunction("abs", UnaryFunction(static_cast<double (*)(double)>(std::abs)));
-    M.addFunction("log", UnaryFunction(static_cast<double (*)(double)>(std::log)));
-    M.addFunction("log10", UnaryFunction(static_cast<double (*)(double)>(std::log10)));
+    M.addFunction("sqrt", UnaryFunction<double(double)>(static_cast<double (*)(double)>(std::sqrt)));
+    M.addFunction("exp", UnaryFunction<double(double)>(static_cast<double (*)(double)>(std::exp)));
+    M.addFunction("sin", UnaryFunction<double(double)>(static_cast<double (*)(double)>(std::sin)));
+    M.addFunction("cos", UnaryFunction<double(double)>(static_cast<double (*)(double)>(std::cos)));
+    M.addFunction("tan", UnaryFunction<double(double)>(static_cast<double (*)(double)>(std::tan)));
+    M.addFunction("cbrt", UnaryFunction<double(double)>(static_cast<double (*)(double)>(std::cbrt)));
+    M.addFunction("abs", UnaryFunction<double(double)>(static_cast<double (*)(double)>(std::abs)));
+    M.addFunction("log", UnaryFunction<double(double)>(static_cast<double (*)(double)>(std::log)));
+    M.addFunction("log10", UnaryFunction<double(double)>(static_cast<double (*)(double)>(std::log10)));
+    M.addFunction("operator-", UnaryFunction<double(double)>(std::negate<>()));
 
-    M.addFunction("operator-", BinaryFunction(std::minus<>()));
-    M.addFunction("operator+", BinaryFunction(std::plus<>()));
-    M.addFunction("operator*", BinaryFunction(std::multiplies<>()));
-    M.addFunction("operator/", BinaryFunction(std::divides<>()));
-    M.addFunction("operator^", BinaryFunction(static_cast<double (*)(double, double)>(std::pow)));
+    M.addFunction("operator-", BinaryFunction<double(double, double)>(std::minus<>()));
+    M.addFunction("operator+", BinaryFunction<double(double, double)>(std::plus<>()));
+    M.addFunction("operator*", BinaryFunction<double(double, double)>(std::multiplies<>()));
+    M.addFunction("operator/", BinaryFunction<double(double, double)>(std::divides<>()));
+    M.addFunction("operator^", BinaryFunction<double(double, double)>(static_cast<double (*)(double, double)>(std::pow)));
+
+    M.addFunction("operator+", BinaryFunction<std::string(std::string, std::string)>(std::plus<>()));
 
     Calc.addModule(std::move(M));
 

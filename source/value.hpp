@@ -38,7 +38,7 @@ struct Value {
         if (Data.type() == typeid(int))
             return std::to_string(std::any_cast<int>(Data));
         if (Data.type() == typeid(std::string))
-            return std::any_cast<std::string>(Data);
+            return '\"' + std::any_cast<std::string>(Data) + '\"';
         if (Data.type() == typeid(bool))
             return std::any_cast<bool>(Data) ? "true" : "false";
         return "<Value>";
@@ -71,5 +71,18 @@ inline bool Value::isFunction() const noexcept
 {
     return typeid(Function) == Data.type();
 }
+
+template <typename T>
+struct Signature;
+
+template <typename R, typename... Args>
+struct Signature<R(Args...)> {
+    using Result = R;
+    using Arguments = std::tuple<Args...>;
+
+    static std::vector<std::type_index> TypeIndices() { return {
+        typeid(R), typeid(Args)...
+    }; }
+};
 
 }

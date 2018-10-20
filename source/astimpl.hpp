@@ -81,6 +81,20 @@ public:
     std::string const &getName() const &noexcept { return Name; }
 };
 
+class LambdaCallExpr : public AST {
+    std::unique_ptr<AST> Lambda;
+    std::vector<std::unique_ptr<AST>> Args;
+
+public:
+    LambdaCallExpr(std::unique_ptr<AST> Lambda, std::vector<std::unique_ptr<AST>> Args)
+        : Lambda(std::move(Lambda))
+        , Args(std::move(Args))
+    {
+    }
+
+    Value eval(Interpreter *C) final;
+};
+
 class IfExprAST : public AST {
     std::unique_ptr<AST> Condition, Then, Else;
 

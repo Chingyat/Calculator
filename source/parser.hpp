@@ -14,7 +14,7 @@
 namespace lince {
 
 enum TokenKind { TK_None = 0,
-    TK_String = -1,
+    TK_Identifier = -1,
     TK_Number = -2,
     TK_END = -3,
     TK_If = -4,
@@ -22,7 +22,8 @@ enum TokenKind { TK_None = 0,
     TK_Else = -6,
     TK_True = -7,
     TK_False = -8,
-    TK_Nil = -9 };
+    TK_Nil = -9,
+    TK_String = -10 };
 
 struct Token {
     int Kind;
@@ -31,7 +32,7 @@ struct Token {
 
     bool operator==(std::string const &RHS) const noexcept
     {
-        return Kind == TK_String && Str == RHS;
+        return Kind == TK_Identifier && Str == RHS;
     }
     bool operator==(int RHS) const noexcept { return Kind == RHS; }
 

@@ -57,6 +57,17 @@ Value CallExprAST::eval(Interpreter *C)
     return C->callFunction(Name, std::move(ArgV));
 }
 
+Value LambdaCallExpr::eval(Interpreter *C)
+{
+    auto L = Lambda->eval(C);
+    std::vector<Value> ArgV;
+    ArgV.reserve(Args.size());
+    std::transform(Args.cbegin(), Args.cend(), std::back_inserter(ArgV), [&](const auto &X) {
+        return X->eval(C);
+    });
+    return std::invoke(std::any_cast<Function>(L.Data), C, std::move(ArgV));
+}
+
 Value IfExprAST::eval(Interpreter *C)
 {
     if (Condition->eval(C).booleanof()) {
