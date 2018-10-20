@@ -1,6 +1,6 @@
 #include "astimpl.hpp"
-#include "interpreter.hpp"
 #include "exceptions.hpp"
+#include "interpreter.hpp"
 
 #include <cmath>
 #include <vector>
@@ -55,5 +55,15 @@ Value CallExprAST::eval(Interpreter *C)
     for (auto &&X : Args)
         ArgV.push_back(X->eval(C));
     return C->callFunction(Name, std::move(ArgV));
+}
+
+Value IfExprAST::eval(Interpreter *C)
+{
+    if (Condition->eval(C).booleanof()) {
+        return Then->eval(C);
+    } else if (Else) {
+        return Else->eval(C);
+    }
+    return {};
 }
 } // namespace lince

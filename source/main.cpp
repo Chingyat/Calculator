@@ -94,7 +94,7 @@ int main()
             auto AST = Calc.parse(Expr);
             lince::Value V;
             Calc.eval(AST.get(), V);
-            std::cout << V.toString() << '\n';
+            std::cout << V.stringof() << '\n';
         } catch (std::exception &E) {
             std::cout << "Error: " << E.what() << '\n';
         }

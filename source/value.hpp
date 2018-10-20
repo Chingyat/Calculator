@@ -16,7 +16,16 @@ struct Value {
 
     bool isFunction() const noexcept;
 
-    std::string toString() const
+    bool booleanof() const
+    {
+        if (!Data.has_value())
+            return false;
+        if (Data.type() == typeid(bool))
+            return std::any_cast<bool>(Data);
+        return true;
+    }
+
+    std::string stringof() const
     {
         if (!Data.has_value())
             return "<nil>";
@@ -39,7 +48,7 @@ struct Function {
     std::vector<std::type_index> Type;
 
     bool matchType(std::vector<std::type_index> Type) const
-    {
+    { // TODO: consider covariance and contravariance
         return std::equal(Type.cbegin(), Type.cend(), Function::Type.cbegin() + 1, Function::Type.cend(),
             [](const std::type_index &LHS, const std::type_index &RHS) {
                 if (LHS == typeid(Value) || RHS == typeid(Value))

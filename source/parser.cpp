@@ -17,18 +17,33 @@ const std::map<char, unsigned> Parser::Precedences{
 
 const std::set<char> Parser::RightCombinedOps{ '^', '=' };
 
-std::string Token::getDescription() const
+std::string Token::descriptionof() const
 {
     if (Kind == TK_String)
         return Str;
     if (Kind == TK_Number)
         return Str;
+    if (Kind == TK_If)
+        return "<if>";
+    if (Kind == TK_Else)
+        return "<else>";
+    if (Kind == TK_Then)
+        return "<then>";
     if (Kind > 0)
         return std::string("`") + static_cast<char>(Kind) + "' (" + std::to_string(Kind) + ')';
     if (Kind == TK_END)
         return "<END>";
     return "<Err>";
 }
+
+static const std::map<std::string, int> Keywords{
+    { "if", TK_If },
+    { "then", TK_Then },
+    { "else", TK_Else },
+    { "true", TK_True },
+    { "false", TK_False },
+    { "nil", TK_Nil },
+};
 
 Token Parser::parseToken()
 {
@@ -43,6 +58,11 @@ Token Parser::parseToken()
             S.push_back(C);
         }
         SS.unget();
+
+        if (auto It = Keywords.find(S);
+            It != Keywords.cend())
+            return { It->second, It->first };
+
         return { TK_String, std::move(S) };
     }
 
@@ -70,6 +90,13 @@ Token Parser::parseToken()
     }
 
     return { C };
+}
+
+std::unique_ptr<AST> Parser::parseExpr()
+{
+    if (peekToken() == TK_If)
+        return parseIfExpr();
+    return parseBinOpRHS(parseUnary(), 0);
 }
 
 std::unique_ptr<AST> Parser::parseBinOpRHS(std::unique_ptr<AST> LHS, int Prec)
@@ -108,7 +135,7 @@ std::unique_ptr<AST> Parser::parsePrimary()
 
     if (Tok == TK_Number) {
         eatToken();
-        return std::make_unique<ConstExpr>(Value{ Tok.toNumber() });
+        return std::make_unique<ConstExprAST>(Value{ Tok.numberof() });
     }
     if (Tok == TK_String) {
         eatToken();
@@ -122,6 +149,15 @@ std::unique_ptr<AST> Parser::parsePrimary()
                 std::move(Args));
         }
         return Identifier;
+    } else if (Tok == TK_True) {
+        eatToken();
+        return std::make_unique<ConstExprAST>(Value{ true });
+    } else if (Tok == TK_False) {
+        eatToken();
+        return std::make_unique<ConstExprAST>(Value{ false });
+    } else if (Tok == TK_Nil) {
+        eatToken();
+        return std::make_unique<ConstExprAST>(Value{});
     } else if (Tok == '(') {
         eatToken();
         auto Ret = parseExpr();
@@ -129,7 +165,7 @@ std::unique_ptr<AST> Parser::parsePrimary()
         eatToken();
         return Ret;
     } else
-        throw ParseError("Expected primary expression, but got " + Tok.getDescription());
+        throw ParseError("Expected primary expression, but got " + Tok.descriptionof());
 }
 
 std::vector<std::unique_ptr<AST>> Parser::parseArgList()
@@ -145,7 +181,30 @@ std::vector<std::unique_ptr<AST>> Parser::parseArgList()
         if (peekToken() == ',')
             eatToken();
         else
-            throw ParseError("unknown token: " + peekToken().getDescription());
+            throw ParseError("unknown token: " + peekToken().descriptionof());
     }
 }
+
+std::unique_ptr<AST> Parser::parseIfExpr()
+{
+    assert(peekToken() == TK_If);
+    eatToken();
+
+    auto C = parseExpr();
+    assert(peekToken() == TK_Then);
+    eatToken();
+
+    auto T = parseExpr();
+
+    std::unique_ptr<AST> E;
+
+    if (auto Tok = peekToken();
+        Tok == TK_Else) {
+        eatToken();
+        E = parseExpr();
+    }
+
+    return std::make_unique<IfExprAST>(std::move(C), std::move(T), std::move(E));
+}
+
 }

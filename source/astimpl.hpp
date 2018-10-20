@@ -51,11 +51,11 @@ public:
     Value eval(Interpreter *C) final;
 };
 
-class ConstExpr : public AST {
+class ConstExprAST : public AST {
     Value V;
 
 public:
-    explicit ConstExpr(Value V) noexcept
+    explicit ConstExprAST(Value V) noexcept
         : V(V)
     {
     }
@@ -80,4 +80,19 @@ public:
 
     std::string const &getName() const &noexcept { return Name; }
 };
+
+class IfExprAST : public AST {
+    std::unique_ptr<AST> Condition, Then, Else;
+
+public:
+    IfExprAST(std::unique_ptr<AST> Condition, std::unique_ptr<AST> Then, std::unique_ptr<AST> Else = nullptr)
+        : Condition(std::move(Condition))
+        , Then(std::move(Then))
+        , Else(std::move(Else))
+    {
+    }
+
+    Value eval(Interpreter *C) final;
+};
+
 }

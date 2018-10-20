@@ -16,7 +16,13 @@ namespace lince {
 enum TokenKind { TK_None = 0,
     TK_String = -1,
     TK_Number = -2,
-    TK_END = -3 };
+    TK_END = -3,
+    TK_If = -4,
+    TK_Then = -5,
+    TK_Else = -6,
+    TK_True = -7,
+    TK_False = -8,
+    TK_Nil = -9 };
 
 struct Token {
     int Kind;
@@ -29,9 +35,9 @@ struct Token {
     }
     bool operator==(int RHS) const noexcept { return Kind == RHS; }
 
-    Value toNumber() const { return { std::stod(Str) }; }
+    Value numberof() const { return { std::stod(Str) }; }
 
-    std::string getDescription() const;
+    std::string descriptionof() const;
 };
 
 struct Parser {
@@ -52,7 +58,7 @@ struct Parser {
 
     void eatToken() { CurrentToken = parseToken(); }
 
-    std::unique_ptr<AST> parseExpr() { return parseBinOpRHS(parseUnary(), 0); }
+    std::unique_ptr<AST> parseExpr();
 
     static const std::map<char, unsigned> Precedences;
 
@@ -81,6 +87,8 @@ struct Parser {
 
     std::vector<std::unique_ptr<AST>> parseArgList();
 
+    std::unique_ptr<AST> parseIfExpr();
+
     std::unique_ptr<AST> operator()()
     {
         if (peekToken() == TK_END)
@@ -89,7 +97,7 @@ struct Parser {
         if (peekToken() == TK_END) {
             return V;
         }
-        throw ParseError("Unexpected trailing tokens " + peekToken().getDescription());
+        throw ParseError("Unexpected trailing tokens " + peekToken().descriptionof());
     }
 };
 
