@@ -23,7 +23,7 @@ Value UnaryExprAST::eval(Interpreter *C)
 {
     std::vector<Value> Arg;
     Arg.emplace_back(Operand->eval(C));
-    return C->callFunction(std::string("operator") + Op, std::move(Arg));
+    return C->callFunction(std::string("operator") + reinterpret_cast<char(&)[]>(Op), std::move(Arg));
 }
 
 Value BinExprAST::eval(Interpreter *C)
@@ -46,7 +46,7 @@ Value BinExprAST::eval(Interpreter *C)
     Operands.emplace_back(LHS->eval(C));
     Operands.emplace_back(RHS->eval(C));
 
-    return C->callFunction(std::string("operator") + Op, std::move(Operands));
+    return C->callFunction(std::string("operator") + reinterpret_cast<char(&)[]>(Op), std::move(Operands));
 }
 
 Value CallExprAST::eval(Interpreter *C)

@@ -1,11 +1,13 @@
 #include "interpreter.hpp"
 #include "stdlib.hpp"
+#include "astfmt.hpp"
 
 #include <readline/history.h>
 #include <readline/readline.h>
 
 #include <cmath>
 #include <iostream>
+#include <string_view>
 
 struct free_str {
     void operator()(char *Str) noexcept { free(Str); }
@@ -55,12 +57,14 @@ int main()
 
     rl_initialize();
 
+
     while (readExpr(Expr)) {
         try {
             auto AST = Calc.parse(Expr);
             if (!AST)
                 continue;
             lince::Value V;
+            std::cout << format(AST.get()) << '\n';
             Calc.eval(AST.get(), V);
             std::cout << V.Info() << '\n';
         } catch (std::exception &E) {

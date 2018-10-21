@@ -2,6 +2,7 @@
 #include "ast.hpp"
 #include "value.hpp"
 
+#include <fmt/format.h>
 #include <memory>
 #include <string>
 #include <vector>
@@ -18,30 +19,42 @@ public:
     }
 
     Value eval(Interpreter *C) final;
+
+    std::string dump() const final
+    {
+        return fmt::format("Identifier {{Name: \"{}\"}}", getName());
+    }
+
     const std::string &getName() const & { return Name; }
 };
 
 class UnaryExprAST : public AST {
     std::unique_ptr<AST> Operand;
-    char Op;
+    int Op;
 
 public:
-    UnaryExprAST(std::unique_ptr<AST> Operand, char Op) noexcept
+    UnaryExprAST(std::unique_ptr<AST> Operand, int Op) noexcept
         : Operand(std::move(Operand))
         , Op(Op)
     {
     }
 
     Value eval(Interpreter *C) final;
+
+    std::string dump() const final
+    {
+        return fmt::format("UnaryExpression {{Op: \"{}\",Operand: {}}}",
+            reinterpret_cast<const char(&)[]>(Op), Operand->dump());
+    }
 };
 
 class BinExprAST : public AST {
     std::unique_ptr<AST> LHS, RHS;
-    char Op;
+    int Op;
 
 public:
     BinExprAST(std::unique_ptr<AST> LHS, std::unique_ptr<AST> RHS,
-        char Op) noexcept
+        int Op) noexcept
         : LHS(std::move(LHS))
         , RHS(std::move(RHS))
         , Op(Op)
@@ -49,6 +62,13 @@ public:
     }
 
     Value eval(Interpreter *C) final;
+
+    std::string dump() const final
+    {
+        return fmt::format("BinaryExpression {{Op: \"{}\",LHS: {},RHS: {}}}",
+            reinterpret_cast<const char(&)[]>(Op),
+            LHS->dump(), RHS->dump());
+    }
 };
 
 class ConstExprAST : public AST {
@@ -61,6 +81,11 @@ public:
     }
 
     Value eval(Interpreter *) noexcept final { return V; }
+
+    std::string dump() const final
+    {
+        return fmt::format("Constant {{Value: \"{} <{}>\"}}", V.stringof(), demangle(V.Data.type().name()));
+    }
 };
 
 class CallExprAST : public AST {
@@ -75,6 +100,16 @@ public:
     }
 
     Value eval(Interpreter *C) final;
+
+    std::string dump() const final
+    {
+        std::string ArgsDump;
+        for (auto &&X : Args)
+            ArgsDump += X->dump() + ',';
+        ArgsDump.pop_back();
+
+        return fmt::format("CallExpression {{Name: \"{}\",Args: [{}]}}", Name, ArgsDump);
+    }
 
     std::vector<std::string> getParams() const;
 
@@ -93,6 +128,15 @@ public:
     }
 
     Value eval(Interpreter *C) final;
+
+    std::string dump() const final
+    {
+        std::string ArgsDump;
+        for (auto &&X : Args)
+            ArgsDump += X->dump() + ',';
+        ArgsDump.pop_back();
+        return fmt::format("LambdaCall {{Lambda: {},Args: [{}]}}", Lambda->dump(), ArgsDump);
+    }
 };
 
 class IfExprAST : public AST {
@@ -107,6 +151,13 @@ public:
     }
 
     Value eval(Interpreter *C) final;
+
+    std::string dump() const final
+    {
+        return fmt::format(
+            "IfExpression {{Condition: {},ThenClause: {},ElseClause: {}}}",
+            Condition->dump(), Then->dump(), Else->dump());
+    }
 };
 
 class TranslationUnitAST : public AST {
@@ -125,6 +176,16 @@ public:
         });
 
         return ExprList.back()->eval(C);
+    }
+
+    std::string dump() const final
+    {
+        std::string S = "TranslationUnit {{ExpressionList: [";
+        for (auto &&X : ExprList)
+            S += X->dump() + ',';
+        S.pop_back();
+        S += "]}}";
+        return S;
     }
 };
 
