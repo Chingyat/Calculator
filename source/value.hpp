@@ -25,6 +25,10 @@ struct Value {
         return true;
     }
 
+    std::string Info() const { return {
+        Data.type().name() + std::string(": ") + stringof()
+    }; }
+
     std::string stringof() const
     {
         if (!Data.has_value())
@@ -49,22 +53,16 @@ struct Function {
     std::function<Value(Interpreter *, std::vector<Value>)> Data;
     std::vector<std::type_index> Type;
 
-    bool matchType(std::vector<std::type_index> Type) const
+    bool matchType(const std::vector<std::type_index> &Type) const
     { // TODO: consider covariance and contravariance
         return std::equal(Type.cbegin(), Type.cend(), Function::Type.cbegin() + 1, Function::Type.cend(),
             [](const std::type_index &LHS, const std::type_index &RHS) {
-                if (LHS == typeid(Value) || RHS == typeid(Value))
-                    return true;
-                if (LHS == RHS)
-                    return true;
-                return false;
+                return LHS == typeid(Value) || RHS == typeid(Value) || LHS == RHS;
             });
     }
 
-    Value operator()(Interpreter *I, std::vector<Value> Args) const
-    {
-        return Data(I, std::move(Args));
-    }
+    Value operator()(Interpreter *I, std::vector<Value> Args) const { return Data(
+        I, std::move(Args)); }
 };
 
 inline bool Value::isFunction() const noexcept

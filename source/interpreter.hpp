@@ -38,6 +38,16 @@ public:
         return It->second;
     }
 
+    template <typename T, typename U>
+    void addConstructor()
+    {
+        addFunction(std::string("__") + typeid(T).name(), { [](Interpreter *, std::vector<Value> A) -> Value {
+                                                               return { T(
+                                                                   std::any_cast<U>(A[0].Data)) };
+                                                           },
+                                                              std::vector<std::type_index>{ typeid(T), typeid(U) } });
+    }
+
     const Value &addValue(const std::string &Name, Value TheValue)
     {
         return self()->ValueNS[0].emplace(Name, std::move(TheValue)).first->second;
@@ -162,6 +172,6 @@ private:
     ScopeGuard SG = createScope();
 };
 
-Function DynamicFunction(std::vector<std::string> Params, std::unique_ptr<AST> Body);
+Function DynamicFunction(std::vector<std::string> Params, std::shared_ptr<AST> Body);
 
 } // namespace lince

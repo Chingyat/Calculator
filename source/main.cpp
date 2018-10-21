@@ -23,11 +23,9 @@ bool readExpr(std::string &Expr)
 template <typename Type, typename Callable>
 lince::Function UnaryFunction(Callable &&Func)
 {
-    return { [Func = std::forward<Callable>(Func)](lince::Interpreter *,
-                 std::vector<lince::Value> args) -> lince::Value {
-                return { { Func(
-                    std::any_cast<
-                        std::tuple_element_t<0, typename lince::Signature<Type>::Arguments>>(args[0].Data)) } };
+    return { [Func = std::forward<Callable>(Func)](lince::Interpreter *, std::vector<lince::Value> args) {
+                return lince::Value{ std::invoke(Func,
+                    std::any_cast<std::tuple_element_t<0, typename lince::Signature<Type>::Arguments>>(args[0].Data)) };
             },
         lince::Signature<Type>::TypeIndices() };
 }
@@ -35,13 +33,10 @@ lince::Function UnaryFunction(Callable &&Func)
 template <typename Type, typename Callable>
 lince::Function BinaryFunction(Callable &&Func)
 {
-    return { [Func = std::forward<Callable>(Func)](lince::Interpreter *,
-                 std::vector<lince::Value> args) -> lince::Value {
-                return { { Func(
-                    std::any_cast<
-                        std::tuple_element_t<0, typename lince::Signature<Type>::Arguments>>(args[0].Data),
-                    std::any_cast<
-                        std::tuple_element_t<1, typename lince::Signature<Type>::Arguments>>(args[1].Data)) } };
+    return { [Func = std::forward<Callable>(Func)](lince::Interpreter *, std::vector<lince::Value> args) {
+                return lince::Value{ std::invoke(Func,
+                    std::any_cast<std::tuple_element_t<0, typename lince::Signature<Type>::Arguments>>(args[0].Data),
+                    std::any_cast<std::tuple_element_t<1, typename lince::Signature<Type>::Arguments>>(args[1].Data)) };
             },
         lince::Signature<Type>::TypeIndices() };
 }
@@ -65,12 +60,13 @@ char *CompletionGenerator(const char *Text, int State)
     }
 }
 
-int main()
+lince ::Module CalculatorModule()
 {
     lince::Module M;
     M.addValue("pi", { 3.1415926535897 });
     M.addValue("e", { 2.7182818284590 });
     M.addValue("phi", { 0.618033988 });
+
     M.addFunction("sqrt", UnaryFunction<double(double)>(static_cast<double (*)(double)>(std::sqrt)));
     M.addFunction("exp", UnaryFunction<double(double)>(static_cast<double (*)(double)>(std::exp)));
     M.addFunction("sin", UnaryFunction<double(double)>(static_cast<double (*)(double)>(std::sin)));
@@ -88,9 +84,28 @@ int main()
     M.addFunction("operator/", BinaryFunction<double(double, double)>(std::divides<>()));
     M.addFunction("operator^", BinaryFunction<double(double, double)>(static_cast<double (*)(double, double)>(std::pow)));
 
-    M.addFunction("operator+", BinaryFunction<std::string(std::string, std::string)>(std::plus<>()));
+    M.addConstructor<double, int>();
+    M.addFunction("operator-", UnaryFunction<int(int)>(std::negate<>()));
+    M.addFunction("operator-", BinaryFunction<int(int, int)>(std::minus<>()));
+    M.addFunction("operator+", BinaryFunction<int(int, int)>(std::plus<>()));
+    M.addFunction("operator*", BinaryFunction<int(int, int)>(std::multiplies<>()));
+    M.addFunction("operator/", BinaryFunction<int(int, int)>(std::divides<>()));
 
-    Calc.addModule(std::move(M));
+    M.addFunction("operator+", BinaryFunction<std::string(std::string, std::string)>(std::plus<>()));
+    M.addFunction("operator*", BinaryFunction<std::string(std::string, int)>([](const std::string &Str, unsigned N) {
+        std::string S;
+        while (N--)
+            S += Str;
+        return S;
+    }));
+    return M;
+}
+
+int main()
+{
+
+    Calc.addModule(
+        CalculatorModule());
 
     std::string Expr;
 
@@ -104,7 +119,7 @@ int main()
             auto AST = Calc.parse(Expr);
             lince::Value V;
             Calc.eval(AST.get(), V);
-            std::cout << V.stringof() << '\n';
+            std::cout << V.Info() << '\n';
         } catch (std::exception &E) {
             std::cout << "Error: " << E.what() << '\n';
         }

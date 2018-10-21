@@ -6,7 +6,7 @@
 
 namespace lince {
 
-const std::map<char, unsigned> Parser::Precedences{
+const std::map<int, unsigned> Parser::Precedences{
     { '=', 10 },
     { '+', 20 },
     { '-', 20 },
@@ -15,7 +15,8 @@ const std::map<char, unsigned> Parser::Precedences{
     { '^', 40 },
 };
 
-const std::set<char> Parser::RightCombinedOps{ '^', '=' };
+
+const std::set<int> Parser::RightCombinedOps{ '^', '=' };
 
 std::string Token::descriptionof() const
 {
@@ -30,7 +31,7 @@ std::string Token::descriptionof() const
     if (Kind == TK_Then)
         return "<then>";
     if (Kind > 0)
-        return std::string("`") + static_cast<char>(Kind) + "' (" + std::to_string(Kind) + ')';
+        return std::string("`") + reinterpret_cast<const char (&)[]>(Kind) + "' (" + std::to_string(Kind) + ')';
     if (Kind == TK_END)
         return "<END>";
     return "<Err>";
@@ -62,10 +63,13 @@ Token Parser::parseToken()
         }
     }
 
-    if (std::isalpha(C)) {
+    if (std::isalpha(C) || C == '_') {
         std::string S;
         S.push_back(C);
-        while (std::isalnum((C = SS.get()))) {
+        while (true) {
+            C = SS.get();
+            if (!std::isalnum(C) && C != '_')
+                break;
             S.push_back(C);
         }
         SS.unget();
@@ -209,7 +213,8 @@ std::vector<std::unique_ptr<AST>> Parser::parseArgList()
         if (peekToken() == ',')
             eatToken();
         else
-            throw ParseError("unknown token: " + peekToken().descriptionof());
+            throw ParseError(
+                "unknown token: " + peekToken().descriptionof());
     }
 }
 
@@ -232,7 +237,8 @@ std::unique_ptr<AST> Parser::parseIfExpr()
         E = parseExpr();
     }
 
-    return std::make_unique<IfExprAST>(std::move(C), std::move(T), std::move(E));
+    return std::make_unique<IfExprAST>(
+        std::move(C), std::move(T), std::move(E));
 }
 
 }

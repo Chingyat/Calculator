@@ -2,6 +2,9 @@
 #include "ast.hpp"
 #include "parser.hpp"
 
+#include <typeindex>
+#include <typeinfo>
+
 namespace lince {
 
 void Interpreter::eval(AST *MyAST, Value &Result)
@@ -15,22 +18,78 @@ std::unique_ptr<AST> Interpreter::parse(const std::string &Expr) const
     return P();
 }
 
+template <typename FwdIt1, typename FwdIt2>
+static bool areConvertible(Interpreter *C, FwdIt1 First, FwdIt1 Last, FwdIt2 OFirst)
+{
+    while (First != Last) {
+        try {
+            if (*First != *OFirst)
+                C->getFunction(std::string("__") + OFirst->name(), std::vector{ *OFirst, *First });
+            ++First;
+            ++OFirst;
+        } catch (EvalError &) {
+            return false;
+        }
+    }
+    return true;
+}
+
 Value Interpreter::callFunction(const std::string &Name, std::vector<Value> Args)
 {
-    const auto Functions = findFunctions(Name);
+    auto Functions = findFunctions(Name);
     std::vector<std::type_index> ArgTypes;
-    std::transform(Args.cbegin(), Args.cend(), std::back_inserter(ArgTypes), [](const Value &V) {
-        return std::type_index(V.Data.type());
+    std::transform(Args.cbegin(), Args.cend(), std::back_inserter(ArgTypes),
+        [](const Value &V) { return std::type_index(V.Data.type()); });
+
+    const auto F = std::find_if(Functions.cbegin(), Functions.cend(),
+        [&](const Function &Func) { return Func.matchType(ArgTypes); });
+
+    if (F != Functions.cend())
+        return std::invoke(*F, this, std::move(Args));
+
+    const auto Compare = [&](const Function &X, const Function &Y) {
+        int L = areConvertible(this, ArgTypes.cbegin(), ArgTypes.cend(), X.Type.cbegin() + 1);
+        int R = areConvertible(this, ArgTypes.cbegin(), ArgTypes.cend(), Y.Type.cbegin() + 1);
+        return L < R;
+    };
+
+    std::sort(Functions.begin(), Functions.end(), Compare);
+
+    const auto FirstMatch = std::find_if(Functions.cbegin(), Functions.cend(), [&](const Function &X) {
+        return areConvertible(this, ArgTypes.cbegin(), ArgTypes.cend(), X.Type.cbegin() + 1);
     });
 
-    auto F = std::find_if(Functions.cbegin(), Functions.cend(), [&](const Function &Func) {
-        return Func.matchType(ArgTypes);
-    });
+    const auto NCandidates = std::distance(FirstMatch, Functions.cend());
+    if (NCandidates == 1) {
+        auto Arg = Args.begin();
+        auto Type = FirstMatch->get().Type.cbegin() + 1;
+        while (Arg != Args.end()) {
+            if (*Type != Arg->Data.type()) {
+                std::vector<Value> ConversionArg;
+                ConversionArg.emplace_back(std::move(*Arg));
+                *Arg = callFunction(std::string("__") + Type->name(), std::move(ConversionArg));
+            }
+            ++Type;
+            ++Arg;
+        }
+        return std::invoke(*FirstMatch, this, std::move(Args));
+    }
 
-    if (F == Functions.cend())
-        throw EvalError("No such function");
+    if (NCandidates > 1) {
+        std::string Msg = "Ambiguous function call: \n";
+        std::for_each(FirstMatch, Functions.cend(), [&](const Function &Func) {
+            Msg += std::string("Candidate: ") + Func.Type.front().name() + "(";
+            std::for_each(Func.Type.begin() + 1, Func.Type.end(), [&](const std::type_index &TI) {
+                Msg += std::string(" ") + TI.name() + ',';
+            });
+            Msg.pop_back();
+            Msg += ")\n";
+        });
+        throw EvalError(
+            Msg);
+    }
 
-    return std::invoke(*F, this, std::move(Args));
+    throw EvalError("No such function");
 }
 
 std::set<std::string>
@@ -53,21 +112,18 @@ Interpreter::getCompletionList(const std::string &Text) const
     return Ret;
 }
 
-Function DynamicFunction(std::vector<std::string> Params, std::unique_ptr<AST> Body)
+Function DynamicFunction(std::vector<std::string> ParamsV, std::shared_ptr<AST> Body)
 {
-    std::vector<std::type_index> Type(Params.size() + 1, typeid(Value));
-
-    auto Data = [Params = std::make_shared<std::vector<std::string>>(std::move(Params)), Body = std::shared_ptr(std::move(Body))](
-                    Interpreter *C, std::vector<Value> Args) {
-        const auto _ = C->createScope();
-        const auto N = Params->size();
-        for (size_t I = 0; I != N; ++I) {
-            C->addLocalValue(Params->at(I), Args[I]);
-        }
-        return Body->eval(C);
-    };
-
-    return { Data, Type };
+    auto Params = std::make_shared<std::vector<std::string>>(std::move(ParamsV));
+    return { [Params, Body](Interpreter *C, std::vector<Value> Args) {
+                const auto _ = C->createScope();
+                const auto N = Params->size();
+                for (size_t I = 0; I != N; ++I) {
+                    C->addLocalValue(Params->at(I), Args[I]);
+                }
+                return Body->eval(C);
+            },
+        std::vector(Params->size() + 1, static_cast<std::type_index>(typeid(Value))) };
 }
 
 } // namespace lince

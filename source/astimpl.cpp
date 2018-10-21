@@ -21,8 +21,9 @@ std::vector<std::string> CallExprAST::getParams() const
 
 Value UnaryExprAST::eval(Interpreter *C)
 {
-    auto OperandV = Operand->eval(C);
-    return C->callFunction(std::string("operator") + Op, std::vector{ std::move(OperandV) });
+    std::vector<Value> Arg;
+    Arg.emplace_back(Operand->eval(C));
+    return C->callFunction(std::string("operator") + Op, std::move(Arg));
 }
 
 Value BinExprAST::eval(Interpreter *C)
@@ -41,11 +42,11 @@ Value BinExprAST::eval(Interpreter *C)
         throw ParseError("Syntax Error ");
     }
 
-    auto L = LHS->eval(C);
-    auto R = RHS->eval(C);
+    std::vector<Value> Operands;
+    Operands.emplace_back(LHS->eval(C));
+    Operands.emplace_back(RHS->eval(C));
 
-    //C->getFunction(std::string("operator") + Op)(C, std::vector<lince::Value>{ std::move(L), std::move(R) });
-    return C->callFunction(std::string("operator") + Op, std::vector{ std::move(L), std::move(R) });
+    return C->callFunction(std::string("operator") + Op, std::move(Operands));
 }
 
 Value CallExprAST::eval(Interpreter *C)
@@ -62,9 +63,8 @@ Value LambdaCallExpr::eval(Interpreter *C)
     auto L = Lambda->eval(C);
     std::vector<Value> ArgV;
     ArgV.reserve(Args.size());
-    std::transform(Args.cbegin(), Args.cend(), std::back_inserter(ArgV), [&](const auto &X) {
-        return X->eval(C);
-    });
+    std::transform(Args.cbegin(), Args.cend(), std::back_inserter(ArgV),
+        [&](const auto &X) { return X->eval(C); });
     return std::invoke(std::any_cast<Function>(L.Data), C, std::move(ArgV));
 }
 

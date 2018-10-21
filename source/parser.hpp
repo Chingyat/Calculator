@@ -36,7 +36,11 @@ struct Token {
     }
     bool operator==(int RHS) const noexcept { return Kind == RHS; }
 
-    Value numberof() const { return { std::stod(Str) }; }
+    Value numberof() const
+    {
+        return Str.find('.') != std::string::npos ? Value{ std::stod(Str) }
+                                                  : Value{ std::stoi(Str) };
+    }
 
     std::string descriptionof() const;
 };
@@ -61,7 +65,7 @@ struct Parser {
 
     std::unique_ptr<AST> parseExpr();
 
-    static const std::map<char, unsigned> Precedences;
+    static const std::map<int, unsigned> Precedences;
 
     static bool isBinOp(const Token &Tok) noexcept
     {
@@ -73,9 +77,9 @@ struct Parser {
         return Precedences.at(Tok.Kind);
     }
 
-    static const std::set<char> RightCombinedOps;
+    static const std::set<int> RightCombinedOps;
 
-    static bool isRightCombined(char C) noexcept
+    static bool isRightCombined(int C) noexcept
     {
         return RightCombinedOps.find(C) != RightCombinedOps.cend();
     }
