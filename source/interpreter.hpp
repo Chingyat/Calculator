@@ -16,6 +16,11 @@ namespace lince {
 
 class AST;
 
+inline std::string ConstructorName(std::string const &Name)
+{
+    return "__" + Name;
+}
+
 template <typename Impl>
 class ModuleBase {
     const Impl *self() const { return static_cast<Impl const *>(this); }
@@ -39,13 +44,14 @@ public:
     }
 
     template <typename T, typename U>
-    void addConstructor()
+    const Function &addConstructor()
     {
-        addFunction(std::string("__") + typeid(T).name(), { [](Interpreter *, std::vector<Value> A) -> Value {
-                                                               return { T(
-                                                                   std::any_cast<U>(A[0].Data)) };
-                                                           },
-                                                              std::vector<std::type_index>{ typeid(T), typeid(U) } });
+        Function F{ [](Interpreter *, std::vector<Value> A) -> Value {
+                       return { T(
+                           std::any_cast<U>(A[0].Data)) };
+                   },
+            std::vector<std::type_index>{ typeid(T), typeid(U) } };
+        return addFunction(ConstructorName(typeid(T).name()), std::move(F));
     }
 
     const Value &addValue(const std::string &Name, Value TheValue)

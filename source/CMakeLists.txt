@@ -1,4 +1,9 @@
-add_executable(calc main.cpp interpreter.cpp astimpl.cpp parser.cpp)
+add_executable(calc
+               main.cpp
+               interpreter.cpp
+               astimpl.cpp
+               parser.cpp
+               demangle.cpp)
 
 target_link_libraries(calc Threads::Threads)
 target_compile_features(calc PUBLIC cxx_std_17)

@@ -1,6 +1,7 @@
 #include "interpreter.hpp"
 #include "ast.hpp"
 #include "parser.hpp"
+#include "demangle.hpp"
 
 #include <typeindex>
 #include <typeinfo>
@@ -19,12 +20,14 @@ std::unique_ptr<AST> Interpreter::parse(const std::string &Expr) const
 }
 
 template <typename FwdIt1, typename FwdIt2>
-static bool areConvertible(Interpreter *C, FwdIt1 First, FwdIt1 Last, FwdIt2 OFirst)
+static bool areConvertible(Interpreter *C, FwdIt1 First, FwdIt1 Last, FwdIt2 OFirst, FwdIt2 OLast)
 {
+    if (std::distance(First, Last) != std::distance(OFirst, OLast))
+        return false;
     while (First != Last) {
         try {
             if (*First != *OFirst)
-                C->getFunction(std::string("__") + OFirst->name(), std::vector{ *OFirst, *First });
+                C->getFunction(ConstructorName(OFirst->name()), std::vector{ *OFirst, *First });
             ++First;
             ++OFirst;
         } catch (EvalError &) {
@@ -48,15 +51,15 @@ Value Interpreter::callFunction(const std::string &Name, std::vector<Value> Args
         return std::invoke(*F, this, std::move(Args));
 
     const auto Compare = [&](const Function &X, const Function &Y) {
-        int L = areConvertible(this, ArgTypes.cbegin(), ArgTypes.cend(), X.Type.cbegin() + 1);
-        int R = areConvertible(this, ArgTypes.cbegin(), ArgTypes.cend(), Y.Type.cbegin() + 1);
+        unsigned L = areConvertible(this, ArgTypes.cbegin(), ArgTypes.cend(), X.Type.cbegin() + 1, X.Type.cend());
+        unsigned R = areConvertible(this, ArgTypes.cbegin(), ArgTypes.cend(), Y.Type.cbegin() + 1, Y.Type.cend());
         return L < R;
     };
 
     std::sort(Functions.begin(), Functions.end(), Compare);
 
     const auto FirstMatch = std::find_if(Functions.cbegin(), Functions.cend(), [&](const Function &X) {
-        return areConvertible(this, ArgTypes.cbegin(), ArgTypes.cend(), X.Type.cbegin() + 1);
+        return areConvertible(this, ArgTypes.cbegin(), ArgTypes.cend(), X.Type.cbegin() + 1, X.Type.cend());
     });
 
     const auto NCandidates = std::distance(FirstMatch, Functions.cend());
@@ -67,7 +70,7 @@ Value Interpreter::callFunction(const std::string &Name, std::vector<Value> Args
             if (*Type != Arg->Data.type()) {
                 std::vector<Value> ConversionArg;
                 ConversionArg.emplace_back(std::move(*Arg));
-                *Arg = callFunction(std::string("__") + Type->name(), std::move(ConversionArg));
+                *Arg = callFunction(ConstructorName(Type->name()), std::move(ConversionArg));
             }
             ++Type;
             ++Arg;
@@ -78,12 +81,12 @@ Value Interpreter::callFunction(const std::string &Name, std::vector<Value> Args
     if (NCandidates > 1) {
         std::string Msg = "Ambiguous function call: \n";
         std::for_each(FirstMatch, Functions.cend(), [&](const Function &Func) {
-            Msg += std::string("Candidate: ") + Func.Type.front().name() + "(";
+            Msg += std::string("Candidate: ") + demangle(Func.Type.front().name()) + ' ' + Name + "(";
             std::for_each(Func.Type.begin() + 1, Func.Type.end(), [&](const std::type_index &TI) {
-                Msg += std::string(" ") + TI.name() + ',';
+                Msg += std::string(" ") + demangle(TI.name()) + ',';
             });
             Msg.pop_back();
-            Msg += ")\n";
+            Msg += " )\n";
         });
         throw EvalError(
             Msg);

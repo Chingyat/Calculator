@@ -1,4 +1,6 @@
 #pragma once
+#include "demangle.hpp"
+
 #include <any>
 #include <functional>
 #include <memory>
@@ -26,7 +28,7 @@ struct Value {
     }
 
     std::string Info() const { return {
-        Data.type().name() + std::string(": ") + stringof()
+        demangle(Data.type().name()) + std::string(": ") + stringof()
     }; }
 
     std::string stringof() const
