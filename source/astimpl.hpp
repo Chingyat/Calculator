@@ -156,7 +156,7 @@ public:
     {
         return fmt::format(
             "IfExpression {{Condition: {},ThenClause: {},ElseClause: {}}}",
-            Condition->dump(), Then->dump(), Else->dump());
+            Condition->dump(), Then->dump(), Else ? Else->dump() : "nil");
     }
 };
 
