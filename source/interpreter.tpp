@@ -3,20 +3,24 @@
 
 namespace lince {
 
+    inline bool isConvertible(Interpreter *C, const std::type_index &From, const std::type_index &To) noexcept
+    {
+        try {
+            C->getFunction(ConstructorName(To.name()), std::vector<std::type_index>{ To, From });
+            return true;
+        } catch (EvalError &) {
+            return false;
+        }
+    }
+
 template <typename FwdIt1, typename FwdIt2>
 inline bool areConvertible(Interpreter *C, FwdIt1 First, FwdIt1 Last, FwdIt2 OFirst, FwdIt2 OLast)
 {
     if (std::distance(First, Last) != std::distance(OFirst, OLast))
         return false;
     while (First != Last) {
-        try {
-            if (*First != *OFirst)
-                C->getFunction(ConstructorName(OFirst->name()), std::vector{ *OFirst, *First });
-            ++First;
-            ++OFirst;
-        } catch (EvalError &) {
+        if (!isConvertible(C, *First, *OFirst))
             return false;
-        }
     }
     return true;
 }
@@ -33,7 +37,7 @@ Value Interpreter::callFunction(const std::string &Name, Sequence &&Args)
         [&](const Function &Func) { return Func.matchType(ArgTypes); });
 
     if (F != Functions.cend())
-        return invokeFunction(*F, this, std::forward<Sequence>(Args));
+        return invokeForValue(*F, this, std::forward<Sequence>(Args));
 
     const auto Compare = [&](const Function &X, const Function &Y) {
         unsigned L = areConvertible(this, ArgTypes.cbegin(), ArgTypes.cend(), X.Type.cbegin() + 1, X.Type.cend());
@@ -60,7 +64,7 @@ Value Interpreter::callFunction(const std::string &Name, Sequence &&Args)
             ++Type;
             ++Arg;
         }
-        return invokeFunction(*FirstMatch, this, std::forward<Sequence>(Args));
+        return invokeForValue(*FirstMatch, this, std::forward<Sequence>(Args));
     }
 
     if (NCandidates > 1) {
@@ -77,6 +81,17 @@ Value Interpreter::callFunction(const std::string &Name, Sequence &&Args)
     }
 
     // NCandidates == 0
+    // Try dynamic functions
+    const auto DynFunc = std::find_if(Functions.cbegin(), Functions.cend(), [](const Function &F) {
+        return std::all_of(F.Type.cbegin() + 1, F.Type.cend(), [](const std::type_index &TI) {
+            return TI == typeid(Value);
+        });
+    });
+
+    if (DynFunc != Functions.cend())
+        return invokeForValue(*DynFunc, this, std::forward<Sequence>(Args));
+
+    // No match
     std::string Msg = "No such function: " + Name + ", arguments are: (";
 
     for (auto &&X : Args) {

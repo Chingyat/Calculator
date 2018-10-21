@@ -22,7 +22,9 @@ enum TokenKind { TK_None = 0,
     TK_True = -7,
     TK_False = -8,
     TK_Nil = -9,
-    TK_String = -10 };
+    TK_String = -10,
+    TK_While = -11,
+    TK_Do = -12 };
 
 struct Token {
     int Kind;
@@ -64,21 +66,46 @@ struct Parser {
 
     std::unique_ptr<AST> parseExpr();
 
-    static const std::map<int, unsigned> Precedences;
+    const std::map<int, unsigned> Precedences{
+        { '=', 10 },
+        { '+', 20 },
+        { '-', 20 },
+        { '*', 30 },
+        { '/', 30 },
+        { '^', 40 },
+    };
 
-    static bool isBinOp(const Token &Tok) noexcept
+    const std::map<std::string, int> Keywords{
+        { "if", TK_If },
+        { "then", TK_Then },
+        { "else", TK_Else },
+        { "true", TK_True },
+        { "false", TK_False },
+        { "nil", TK_Nil },
+        { "while", TK_While },
+        { "do", TK_Do },
+    };
+
+    const std::set<int> UnaryOperators{'-', '!', '~'};
+
+    const std::set<int> RightCombinedOps{ '^', '=' };
+
+    bool isBinOp(const Token &Tok) noexcept
     {
         return Precedences.find(Tok.Kind) != Precedences.cend();
     }
 
-    static int getPrecedence(const Token &Tok)
+    bool isUnOp(const Token &Tok) noexcept
+    {
+        return UnaryOperators.find(Tok.Kind) != UnaryOperators.cend();
+    }
+
+    int getPrecedence(const Token &Tok)
     {
         return Precedences.at(Tok.Kind);
     }
 
-    static const std::set<int> RightCombinedOps;
-
-    static bool isRightCombined(int C) noexcept
+    bool isRightCombined(int C) noexcept
     {
         return RightCombinedOps.find(C) != RightCombinedOps.cend();
     }
@@ -92,6 +119,8 @@ struct Parser {
     std::vector<std::unique_ptr<AST>> parseArgList();
 
     std::unique_ptr<AST> parseIfExpr();
+
+    std::unique_ptr<AST> parseWhileExpr();
 
     std::unique_ptr<AST> operator()()
     {

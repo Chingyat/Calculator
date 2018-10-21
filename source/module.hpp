@@ -64,7 +64,9 @@ template <typename Type, typename Callable = std::decay_t<Type>>
 Function UnaryFunction(Callable Func)
 {
     return { [Func = std::move(Func)](lince::Interpreter *, std::vector<lince::Value> args) {
-                return invokeFunction(Func, std::any_cast<std::tuple_element_t<0, typename lince::Signature<Type>::Arguments>>(args[0].Data));
+                return invokeForValue(Func,
+                                      std::any_cast<std::tuple_element_t<0, typename lince::Signature<Type>::Arguments>>(
+                                              args[0].Data));
             },
         lince::Signature<Type>::TypeIndices() };
 }
@@ -73,9 +75,11 @@ template <typename Type, typename Callable = std::decay_t<Type>>
 Function BinaryFunction(Callable Func)
 {
     return { [Func = std::move(Func)](lince::Interpreter *, std::vector<lince::Value> args) {
-                return invokeFunction(Func,
-                    std::any_cast<std::tuple_element_t<0, typename lince::Signature<Type>::Arguments>>(args[0].Data),
-                    std::any_cast<std::tuple_element_t<1, typename lince::Signature<Type>::Arguments>>(args[1].Data));
+                return invokeForValue(Func,
+                                      std::any_cast<std::tuple_element_t<0, typename lince::Signature<Type>::Arguments>>(
+                                              args[0].Data),
+                                      std::any_cast<std::tuple_element_t<1, typename lince::Signature<Type>::Arguments>>(
+                                              args[1].Data));
             },
         lince::Signature<Type>::TypeIndices() };
 }

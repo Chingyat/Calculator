@@ -1,10 +1,11 @@
+#include <utility>
+
 #pragma once
 #include "ast.hpp"
 #include "value.hpp"
 
 #include <fmt/format.h>
 #include <memory>
-#include <string>
 #include <vector>
 
 namespace lince {
@@ -76,7 +77,7 @@ class ConstExprAST : public AST {
 
 public:
     explicit ConstExprAST(Value V) noexcept
-        : V(V)
+        : V(std::move(V))
     {
     }
 
@@ -87,6 +88,19 @@ public:
         return fmt::format("Constant {{Value: \"{} <{}>\"}}", V.stringof(), demangle(V.Data.type().name()));
     }
 };
+
+
+template <typename Sequence>
+inline std::string dumpASTArray(Sequence &&Seq)
+{
+    std::string S = "[";
+    for (auto &&X : Seq) {
+        S += X->dump() + ',';
+    }
+    S.pop_back();
+    S += ']';
+    return S;
+}
 
 class CallExprAST : public AST {
     std::string Name;
@@ -103,12 +117,7 @@ public:
 
     std::string dump() const final
     {
-        std::string ArgsDump;
-        for (auto &&X : Args)
-            ArgsDump += X->dump() + ',';
-        ArgsDump.pop_back();
-
-        return fmt::format("CallExpression {{Name: \"{}\",Args: [{}]}}", Name, ArgsDump);
+        return fmt::format("CallExpression {{Name: \"{}\",Args: {}}}", Name, dumpASTArray(Args));
     }
 
     std::vector<std::string> getParams() const;
@@ -131,11 +140,7 @@ public:
 
     std::string dump() const final
     {
-        std::string ArgsDump;
-        for (auto &&X : Args)
-            ArgsDump += X->dump() + ',';
-        ArgsDump.pop_back();
-        return fmt::format("LambdaCall {{Lambda: {},Args: [{}]}}", Lambda->dump(), ArgsDump);
+        return fmt::format("LambdaCall {{Lambda: {},Args: {}}}", Lambda->dump(), dumpASTArray(Args));
     }
 };
 
@@ -143,7 +148,7 @@ class IfExprAST : public AST {
     std::unique_ptr<AST> Condition, Then, Else;
 
 public:
-    IfExprAST(std::unique_ptr<AST> Condition, std::unique_ptr<AST> Then, std::unique_ptr<AST> Else = nullptr)
+    IfExprAST(std::unique_ptr<AST> Condition, std::unique_ptr<AST> Then, std::unique_ptr<AST> Else)
         : Condition(std::move(Condition))
         , Then(std::move(Then))
         , Else(std::move(Else))
@@ -157,6 +162,31 @@ public:
         return fmt::format(
             "IfExpression {{Condition: {},ThenClause: {},ElseClause: {}}}",
             Condition->dump(), Then->dump(), Else ? Else->dump() : "nil");
+    }
+};
+
+class WhileExprAST : public AST {
+    std::unique_ptr<AST> Condition, Body;
+public:
+    WhileExprAST(std::unique_ptr<AST> Condition, std::unique_ptr<AST> Body)
+        : Condition(std::move(Condition))
+        , Body(std::move(Body))
+    {
+    }
+
+    Value eval(Interpreter *C) final
+    {
+        Value Ret;
+        while (Condition->eval(C).booleanof()) {
+            Ret = Body->eval(C);
+        }
+        return Ret;
+    }
+
+    std::string dump() const final
+    {
+        return fmt::format("WhileExpression {{Condition: {}, Body: {}}}",
+                Condition->dump(), Body->dump());
     }
 };
 
@@ -180,12 +210,7 @@ public:
 
     std::string dump() const final
     {
-        std::string S = "TranslationUnit {{ExpressionList: [";
-        for (auto &&X : ExprList)
-            S += X->dump() + ',';
-        S.pop_back();
-        S += "]}}";
-        return S;
+        return fmt::format("TranslationUnitAST {{ExpressionList: {}}}", dumpASTArray(ExprList));
     }
 };
 

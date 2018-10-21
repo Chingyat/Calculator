@@ -2,9 +2,6 @@
 #include "exceptions.hpp"
 #include "interpreter.hpp"
 
-#include <cmath>
-#include <vector>
-
 namespace lince {
 
 Value IdentifierAST::eval(Interpreter *C) { return C->getValue(getName()); }
@@ -65,7 +62,7 @@ Value LambdaCallExpr::eval(Interpreter *C)
     ArgV.reserve(Args.size());
     std::transform(Args.cbegin(), Args.cend(), std::back_inserter(ArgV),
         [&](const auto &X) { return X->eval(C); });
-    return invokeFunction(std::any_cast<Function>(L.Data), C, std::move(ArgV));
+    return invokeForValue(std::any_cast<Function>(L.Data), C, std::move(ArgV));
 }
 
 Value IfExprAST::eval(Interpreter *C)

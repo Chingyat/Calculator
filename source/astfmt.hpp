@@ -1,5 +1,6 @@
 #pragma once
 #include "ast.hpp"
+
 #include <sstream>
 
 namespace lince {
@@ -49,7 +50,8 @@ struct ASTFormatter {
     }
 };
 
-inline std::string format(AST *A) {
+inline std::string format(AST *A)
+{
     ASTFormatter AF;
     return AF(A->dump());
 }

@@ -10,8 +10,8 @@ target_compile_features(calc PUBLIC cxx_std_17)
 
 target_link_libraries(calc "readline")
 
-add_library(stdlib SHARED stdlib.cpp)
+add_library(stdlib stdlib.cpp)
 target_compile_features(stdlib PUBLIC cxx_std_17)
 
 target_link_libraries(calc stdlib)
-target_link_libraries(calc fmt)
+target_link_libraries(calc fmt::fmt-header-only)

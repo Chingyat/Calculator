@@ -24,6 +24,8 @@ struct Value {
             return false;
         if (Data.type() == typeid(bool))
             return std::any_cast<bool>(Data);
+        if (Data.type() == typeid(int))
+            return 0 != std::any_cast<int>(Data);
         return true;
     }
 
@@ -57,10 +59,10 @@ struct Function {
 
     template <typename Sequence>
     bool matchType(const Sequence &ArgType) const
-    { // TODO: consider covariance and contravariance
+    {
         return std::equal(std::cbegin(ArgType), std::cend(ArgType), Type.cbegin() + 1, Type.cend(),
             [](const std::type_index &LHS, const std::type_index &RHS) {
-                return LHS == typeid(Value) || RHS == typeid(Value) || LHS == RHS;
+                return LHS == RHS;
             });
     }
 
@@ -87,7 +89,7 @@ struct Signature<R(Args...)> {
 };
 
 template <typename Fn, typename... Args>
-Value invokeFunction(Fn &&F, Args &&... A)
+Value invokeForValue(Fn &&F, Args &&... A)
 {
     if constexpr (std::is_void_v<std::invoke_result_t<Fn &&, Args &&...>>) {
         std::invoke(std::forward<Fn>(F), std::forward<Args>(A)...);

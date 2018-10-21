@@ -7,17 +7,6 @@
 
 namespace lince {
 
-const std::map<int, unsigned> Parser::Precedences{
-    { '=', 10 },
-    { '+', 20 },
-    { '-', 20 },
-    { '*', 30 },
-    { '/', 30 },
-    { '^', 40 },
-};
-
-const std::set<int> Parser::RightCombinedOps{ '^', '=' };
-
 std::string Token::descriptionof() const
 {
     switch (Kind) {
@@ -40,15 +29,6 @@ std::string Token::descriptionof() const
         return "<END>";
     }
 }
-
-static const std::map<std::string, int> Keywords{
-    { "if", TK_If },
-    { "then", TK_Then },
-    { "else", TK_Else },
-    { "true", TK_True },
-    { "false", TK_False },
-    { "nil", TK_Nil },
-};
 
 Token Parser::parseToken()
 {
@@ -119,6 +99,8 @@ std::unique_ptr<AST> Parser::parseExpr()
 {
     if (peekToken() == TK_If)
         return parseIfExpr();
+    if (peekToken() == TK_While)
+        return parseWhileExpr();
     return parseBinOpRHS(parseUnary(), 0);
 }
 
@@ -137,17 +119,16 @@ std::unique_ptr<AST> Parser::parseBinOpRHS(std::unique_ptr<AST> LHS, int Prec)
             RHS = parseBinOpRHS(std::move(RHS),
                 getPrecedence(Tok) + (isRightCombined(NextTok.Kind) ? 0 : 1));
 
-        LHS = std::make_unique<BinExprAST>(std::move(LHS), std::move(RHS),
-            Tok.Kind);
+        LHS = std::make_unique<BinExprAST>(std::move(LHS), std::move(RHS), Tok.Kind);
     }
 }
 
 std::unique_ptr<AST> Parser::parseUnary()
 {
     const auto Tok = peekToken();
-    if (Tok == '-') {
+    if (isUnOp(Tok)) {
         eatToken();
-        return std::make_unique<UnaryExprAST>(parsePrimary(), '-');
+        return std::make_unique<UnaryExprAST>(parsePrimary(), Tok.Kind);
     }
     return parsePrimary();
 }
@@ -235,7 +216,8 @@ std::unique_ptr<AST> Parser::parseIfExpr()
     eatToken();
 
     auto C = parseExpr();
-    assert(peekToken() == TK_Then);
+    if (peekToken().Kind != TK_Then)
+        throw ParseError("Expected `then', but got " + peekToken().descriptionof());
     eatToken();
 
     auto T = parseExpr();
@@ -250,6 +232,18 @@ std::unique_ptr<AST> Parser::parseIfExpr()
 
     return std::make_unique<IfExprAST>(
         std::move(C), std::move(T), std::move(E));
+}
+
+std::unique_ptr<AST> Parser::parseWhileExpr()
+{
+    assert(peekToken() == TK_While);
+    eatToken();
+    auto C = parseExpr();
+    if (peekToken().Kind != TK_Do)
+        throw ParseError("Expected `do', but got " + peekToken().descriptionof());
+    eatToken();
+    auto T = parseExpr();
+    return std::make_unique<WhileExprAST>(std::move(C), std::move(T));
 }
 
 }
