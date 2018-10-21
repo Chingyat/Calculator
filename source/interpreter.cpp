@@ -92,7 +92,16 @@ Value Interpreter::callFunction(const std::string &Name, std::vector<Value> Args
             Msg);
     }
 
-    throw EvalError("No such function");
+    std::string Msg = "No such function: " + Name + ", arguments are: (";
+
+    for (auto &&X : Args) {
+        Msg += ' ' + X.Info() + ',';
+    }
+
+    Msg.pop_back();
+    Msg += " )";
+
+    throw EvalError(Msg);
 }
 
 std::set<std::string>
