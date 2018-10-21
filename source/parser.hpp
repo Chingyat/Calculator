@@ -3,7 +3,6 @@
 #include "exceptions.hpp"
 #include "value.hpp"
 
-#include <cassert>
 #include <map>
 #include <memory>
 #include <set>

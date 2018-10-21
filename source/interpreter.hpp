@@ -2,6 +2,7 @@
 #include "ast.hpp"
 #include "exceptions.hpp"
 #include "value.hpp"
+#include "module.hpp"
 
 #include <cassert>
 #include <cmath>
@@ -13,60 +14,6 @@
 #include <vector>
 
 namespace lince {
-
-class AST;
-
-inline std::string ConstructorName(std::string const &Name)
-{
-    return "__" + Name;
-}
-
-template <typename Impl>
-class ModuleBase {
-    const Impl *self() const { return static_cast<Impl const *>(this); }
-    Impl *self() { return static_cast<Impl *>(this); }
-
-public:
-    std::multimap<std::string, Function> getFunctionNS() &&
-    {
-        return std::move(self()->FunctionNS[0]);
-    }
-
-    std::map<std::string, Value> getValueNS() &&
-    {
-        return std::move(self()->ValueNS[0]);
-    }
-
-    const Function &addFunction(const std::string &Name, Function TheFunction)
-    {
-        auto It = self()->FunctionNS[0].emplace(Name, std::move(TheFunction));
-        return It->second;
-    }
-
-    template <typename T, typename U>
-    const Function &addConstructor()
-    {
-        Function F{ [](Interpreter *, std::vector<Value> A) -> Value {
-                       return { T(
-                           std::any_cast<U>(A[0].Data)) };
-                   },
-            std::vector<std::type_index>{ typeid(T), typeid(U) } };
-        return addFunction(ConstructorName(typeid(T).name()), std::move(F));
-    }
-
-    const Value &addValue(const std::string &Name, Value TheValue)
-    {
-        return self()->ValueNS[0].emplace(Name, std::move(TheValue)).first->second;
-    }
-};
-
-class Module : public ModuleBase<Module> {
-    std::multimap<std::string, Function> FunctionNS[1];
-    std::map<std::string, Value> ValueNS[1];
-    friend class ModuleBase<Module>;
-
-public:
-};
 
 class Interpreter : public ModuleBase<Interpreter> {
     friend class ModuleBase<Interpreter>;
@@ -118,11 +65,12 @@ public:
         return ValueNS.back()[Name] = std::move(V);
     }
 
-    Function const &getFunction(const std::string &Name, std::vector<std::type_index> const &Type) const &
+    template <typename Sequence>
+    Function const &getFunction(const std::string &Name, Sequence const &Type) const &
     {
         const auto Functions = findFunctions(Name);
         const auto It = std::find_if(Functions.cbegin(), Functions.cend(), [&](Function const &F) {
-            return F.Type == Type;
+            return std::equal(F.Type.cbegin(), F.Type.cend(), std::cbegin(Type), std::cend(Type));
         });
 
         if (It == Functions.cend())
@@ -136,7 +84,8 @@ public:
         return It->second;
     }
 
-    Value callFunction(const std::string &Name, std::vector<Value> Args);
+    template <typename Sequence>
+    Value callFunction(const std::string &Name, Sequence &&Args);
 
     std::set<std::string> getCompletionList(const std::string &Text) const;
 
@@ -148,29 +97,10 @@ public:
     }
 
 private:
-    const Value *findVariable(const std::string &Name) const noexcept
-    {
-        for (auto Scope = ValueNS.crbegin(); Scope != ValueNS.crend();
-             ++Scope) {
-            const auto V = Scope->find(Name);
-            if (V != Scope->cend())
-                return &V->second;
-        }
-        return nullptr;
-    }
+    const Value *findVariable(const std::string &Name) const noexcept;
 
     auto findFunctions(const std::string &Name) const noexcept
-        -> std::vector<std::reference_wrapper<const Function>>
-    {
-        std::vector<std::reference_wrapper<const Function>> Ret;
-        std::for_each(FunctionNS.crbegin(), FunctionNS.crend(), [&](const auto &Scope) {
-            auto [Begin, End] = Scope.equal_range(Name);
-            std::for_each(Begin, End, [&](const auto &Pair) {
-                Ret.emplace_back(Pair.second);
-            });
-        });
-        return Ret;
-    }
+        -> std::vector<std::reference_wrapper<const Function>>;
 
     std::vector<std::multimap<std::string, Function>> FunctionNS;
     std::vector<std::map<std::string, Value>> ValueNS;
@@ -178,6 +108,9 @@ private:
     ScopeGuard SG = createScope();
 };
 
-Function DynamicFunction(std::vector<std::string> Params, std::shared_ptr<AST> Body);
+template <typename Sequence>
+Function DynamicFunction(Sequence &&ParamsV, std::shared_ptr<AST> Body);
 
 } // namespace lince
+
+#include "interpreter.tpp"

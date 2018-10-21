@@ -1,6 +1,7 @@
 #include "parser.hpp"
 #include "astimpl.hpp"
 
+#include <cassert>
 #include <map>
 #include <set>
 
@@ -15,26 +16,29 @@ const std::map<int, unsigned> Parser::Precedences{
     { '^', 40 },
 };
 
-
 const std::set<int> Parser::RightCombinedOps{ '^', '=' };
 
 std::string Token::descriptionof() const
 {
-    if (Kind == TK_Identifier)
+    switch (Kind) {
+    case TK_Identifier:
         return Str;
-    if (Kind == TK_Number)
+    case TK_Number:
         return Str;
-    if (Kind == TK_If)
+    case TK_If:
         return "<if>";
-    if (Kind == TK_Else)
+    case TK_Else:
         return "<else>";
-    if (Kind == TK_Then)
+    case TK_Then:
         return "<then>";
-    if (Kind > 0)
-        return std::string("`") + reinterpret_cast<const char (&)[]>(Kind) + "' (" + std::to_string(Kind) + ')';
-    if (Kind == TK_END)
+    default:
+        if (Kind > 0)
+            return std::string("`") + reinterpret_cast<const char(&)[]>(Kind) + "' (" + std::to_string(Kind) + ')';
+        else
+            return "<Error>";
+    case TK_END:
         return "<END>";
-    return "<Err>";
+    }
 }
 
 static const std::map<std::string, int> Keywords{
@@ -104,6 +108,10 @@ Token Parser::parseToken()
         return { TK_END };
     }
 
+    if (C > 127 || C < 0) {
+        throw ParseError("Non-ascii character: " + std::to_string(static_cast<unsigned>(C)));
+    }
+
     return { C };
 }
 
@@ -162,7 +170,8 @@ std::unique_ptr<AST> Parser::parsePrimary()
         if (peekToken() == '(') {
             eatToken();
             auto Args = parseArgList();
-            assert(peekToken() == ')');
+            if (peekToken().Kind != ')')
+                throw ParseError("Expected `)', but got " + peekToken().descriptionof());
             eatToken();
             return std::make_unique<CallExprAST>(Identifier->getName(),
                 std::move(Args));
@@ -184,13 +193,15 @@ std::unique_ptr<AST> Parser::parsePrimary()
     if (Tok == '(') {
         eatToken();
         auto ParenExpr = parseExpr();
-        assert(peekToken() == ')');
+        if (peekToken().Kind != ')')
+            throw ParseError("Expected `)', but got " + peekToken().descriptionof());
         eatToken();
 
         if (peekToken() == '(') {
             eatToken();
             auto Args = parseArgList();
-            assert(peekToken() == ')');
+            if (peekToken().Kind != ')')
+                throw ParseError("Expected `)', but got " + peekToken().descriptionof());
             eatToken();
             return std::make_unique<LambdaCallExpr>(std::move(ParenExpr), std::move(Args));
         }

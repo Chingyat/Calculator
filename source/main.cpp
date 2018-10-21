@@ -1,4 +1,5 @@
 #include "interpreter.hpp"
+#include "stdlib.hpp"
 
 #include <readline/history.h>
 #include <readline/readline.h>
@@ -20,27 +21,6 @@ bool readExpr(std::string &Expr)
     return true;
 }
 
-template <typename Type, typename Callable>
-lince::Function UnaryFunction(Callable &&Func)
-{
-    return { [Func = std::forward<Callable>(Func)](lince::Interpreter *, std::vector<lince::Value> args) {
-                return lince::Value{ std::invoke(Func,
-                    std::any_cast<std::tuple_element_t<0, typename lince::Signature<Type>::Arguments>>(args[0].Data)) };
-            },
-        lince::Signature<Type>::TypeIndices() };
-}
-
-template <typename Type, typename Callable>
-lince::Function BinaryFunction(Callable &&Func)
-{
-    return { [Func = std::forward<Callable>(Func)](lince::Interpreter *, std::vector<lince::Value> args) {
-                return lince::Value{ std::invoke(Func,
-                    std::any_cast<std::tuple_element_t<0, typename lince::Signature<Type>::Arguments>>(args[0].Data),
-                    std::any_cast<std::tuple_element_t<1, typename lince::Signature<Type>::Arguments>>(args[1].Data)) };
-            },
-        lince::Signature<Type>::TypeIndices() };
-}
-
 lince::Interpreter Calc;
 
 char *CompletionGenerator(const char *Text, int State)
@@ -60,52 +40,11 @@ char *CompletionGenerator(const char *Text, int State)
     }
 }
 
-lince ::Module CalculatorModule()
-{
-    lince::Module M;
-    M.addValue("pi", { 3.1415926535897 });
-    M.addValue("e", { 2.7182818284590 });
-    M.addValue("phi", { 0.618033988 });
-
-    M.addFunction("sqrt", UnaryFunction<double(double)>(static_cast<double (*)(double)>(std::sqrt)));
-    M.addFunction("exp", UnaryFunction<double(double)>(static_cast<double (*)(double)>(std::exp)));
-    M.addFunction("sin", UnaryFunction<double(double)>(static_cast<double (*)(double)>(std::sin)));
-    M.addFunction("cos", UnaryFunction<double(double)>(static_cast<double (*)(double)>(std::cos)));
-    M.addFunction("tan", UnaryFunction<double(double)>(static_cast<double (*)(double)>(std::tan)));
-    M.addFunction("cbrt", UnaryFunction<double(double)>(static_cast<double (*)(double)>(std::cbrt)));
-    M.addFunction("abs", UnaryFunction<double(double)>(static_cast<double (*)(double)>(std::abs)));
-    M.addFunction("log", UnaryFunction<double(double)>(static_cast<double (*)(double)>(std::log)));
-    M.addFunction("log10", UnaryFunction<double(double)>(static_cast<double (*)(double)>(std::log10)));
-    M.addFunction("operator-", UnaryFunction<double(double)>(std::negate<>()));
-
-    M.addFunction("operator-", BinaryFunction<double(double, double)>(std::minus<>()));
-    M.addFunction("operator+", BinaryFunction<double(double, double)>(std::plus<>()));
-    M.addFunction("operator*", BinaryFunction<double(double, double)>(std::multiplies<>()));
-    M.addFunction("operator/", BinaryFunction<double(double, double)>(std::divides<>()));
-    M.addFunction("operator^", BinaryFunction<double(double, double)>(static_cast<double (*)(double, double)>(std::pow)));
-
-    M.addConstructor<double, int>();
-    M.addFunction("operator-", UnaryFunction<int(int)>(std::negate<>()));
-    M.addFunction("operator-", BinaryFunction<int(int, int)>(std::minus<>()));
-    M.addFunction("operator+", BinaryFunction<int(int, int)>(std::plus<>()));
-    M.addFunction("operator*", BinaryFunction<int(int, int)>(std::multiplies<>()));
-    M.addFunction("operator/", BinaryFunction<int(int, int)>(std::divides<>()));
-
-    M.addFunction("operator+", BinaryFunction<std::string(std::string, std::string)>(std::plus<>()));
-    M.addFunction("operator*", BinaryFunction<std::string(std::string, int)>([](const std::string &Str, unsigned N) {
-        std::string S;
-        while (N--)
-            S += Str;
-        return S;
-    }));
-    return M;
-}
-
 int main()
 {
 
     Calc.addModule(
-        CalculatorModule());
+        lince::StdLibModule());
 
     std::string Expr;
 
@@ -114,9 +53,13 @@ int main()
         return rl_completion_matches(Text, CompletionGenerator);
     };
 
+    rl_initialize();
+
     while (readExpr(Expr)) {
         try {
             auto AST = Calc.parse(Expr);
+            if (!AST)
+                continue;
             lince::Value V;
             Calc.eval(AST.get(), V);
             std::cout << V.Info() << '\n';

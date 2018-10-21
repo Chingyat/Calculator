@@ -28,13 +28,13 @@ struct Value {
     }
 
     std::string Info() const { return {
-        demangle(Data.type().name()) + std::string(": ") + stringof()
+        stringof() + " : " + demangle(Data.type().name())
     }; }
 
     std::string stringof() const
     {
         if (!Data.has_value())
-            return "<nil>";
+            return "nil";
         if (isFunction())
             return "<Function>";
         if (Data.type() == typeid(double))
@@ -55,9 +55,10 @@ struct Function {
     std::function<Value(Interpreter *, std::vector<Value>)> Data;
     std::vector<std::type_index> Type;
 
-    bool matchType(const std::vector<std::type_index> &Type) const
+    template <typename Sequence>
+    bool matchType(const Sequence &ArgType) const
     { // TODO: consider covariance and contravariance
-        return std::equal(Type.cbegin(), Type.cend(), Function::Type.cbegin() + 1, Function::Type.cend(),
+        return std::equal(std::cbegin(ArgType), std::cend(ArgType), Type.cbegin() + 1, Type.cend(),
             [](const std::type_index &LHS, const std::type_index &RHS) {
                 return LHS == typeid(Value) || RHS == typeid(Value) || LHS == RHS;
             });
@@ -84,5 +85,16 @@ struct Signature<R(Args...)> {
         typeid(R), typeid(Args)...
     }; }
 };
+
+template <typename Fn, typename... Args>
+Value invokeFunction(Fn &&F, Args &&... A)
+{
+    if constexpr (std::is_void_v<std::invoke_result_t<Fn &&, Args &&...>>) {
+        std::invoke(std::forward<Fn>(F), std::forward<Args>(A)...);
+        return { {} };
+    } else {
+        return { std::invoke(std::forward<Fn>(F), std::forward<Args>(A)...) };
+    }
+}
 
 }

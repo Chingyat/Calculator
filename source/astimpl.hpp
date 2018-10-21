@@ -109,4 +109,23 @@ public:
     Value eval(Interpreter *C) final;
 };
 
+class TranslationUnitAST : public AST {
+    std::vector<std::unique_ptr<AST>> ExprList;
+
+public:
+    explicit TranslationUnitAST(std::vector<std::unique_ptr<AST>> ExprList = {})
+        : ExprList(std::move(ExprList))
+    {
+    }
+
+    Value eval(Interpreter *C) final
+    {
+        std::for_each(ExprList.begin(), ExprList.end() - 1, [&](auto &&X) {
+            X->eval(C);
+        });
+
+        return ExprList.back()->eval(C);
+    }
+};
+
 }
