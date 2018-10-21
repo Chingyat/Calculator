@@ -31,9 +31,9 @@ Value BinExprAST::eval(Interpreter *C)
             C->setValue(Identifier->getName(), V);
             return V;
         }
-        if (const auto Func = dynamic_cast<const CallExprAST *>(LHS.get())) {
+        if (const auto Func = dynamic_cast<const GenericCallExpr *>(LHS.get())) {
             auto F = DynamicFunction(Func->getParams(), std::move(RHS));
-            return { C->addLocalFunction(Func->getName(), std::move(F)) };
+            return { C->addLocalFunction(Func->getFunctionName(), std::move(F)) };
         }
 
         throw ParseError("Syntax Error ");

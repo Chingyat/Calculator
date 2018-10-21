@@ -29,7 +29,15 @@ public:
     const std::string &getName() const & { return Name; }
 };
 
-class UnaryExprAST : public AST {
+class GenericCallExpr : public AST {
+public: 
+    Value eval(Interpreter *C) { return {{}}; }
+    virtual std::string getFunctionName() const = 0;
+
+    virtual std::vector<std::string> getParams() const = 0;
+};
+
+class UnaryExprAST : public GenericCallExpr {
     std::unique_ptr<AST> Operand;
     int Op;
 
@@ -47,9 +55,18 @@ public:
         return fmt::format("UnaryExpression {{Op: \"{}\",Operand: {}}}",
             reinterpret_cast<const char(&)[]>(Op), Operand->dump());
     }
+
+    std::string getFunctionName() const final {
+      return std::string("operator") + reinterpret_cast<const char (&)[]>(Op);
+    }
+
+    std::vector<std::string> getParams() const final {
+	return { dynamic_cast<const IdentifierAST &>(*Operand).getName() };
+    }
+
 };
 
-class BinExprAST : public AST {
+class BinExprAST : public GenericCallExpr {
     std::unique_ptr<AST> LHS, RHS;
     int Op;
 
@@ -70,6 +87,16 @@ public:
             reinterpret_cast<const char(&)[]>(Op),
             LHS->dump(), RHS->dump());
     }
+
+    std::string getFunctionName() const final {
+      return std::string("operator") + reinterpret_cast<const char (&)[]>(Op);
+    }
+
+
+    std::vector<std::string> getParams() const final {
+	return { dynamic_cast<const IdentifierAST&>(*LHS).getName(), dynamic_cast<const IdentifierAST&>(*RHS).getName() };
+    }
+
 };
 
 class ConstExprAST : public AST {
@@ -102,7 +129,7 @@ inline std::string dumpASTArray(Sequence &&Seq)
     return S;
 }
 
-class CallExprAST : public AST {
+class CallExprAST : public GenericCallExpr {
     std::string Name;
     std::vector<std::unique_ptr<AST>> Args;
 
@@ -120,9 +147,9 @@ public:
         return fmt::format("CallExpression {{Name: \"{}\",Args: {}}}", Name, dumpASTArray(Args));
     }
 
-    std::vector<std::string> getParams() const;
+    std::vector<std::string> getParams() const final;
 
-    std::string const &getName() const &noexcept { return Name; }
+    std::string getFunctionName() const noexcept final { return Name; }
 };
 
 class LambdaCallExpr : public AST {

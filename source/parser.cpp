@@ -97,10 +97,6 @@ Token Parser::parseToken()
 
 std::unique_ptr<AST> Parser::parseExpr()
 {
-    if (peekToken() == TK_If)
-        return parseIfExpr();
-    if (peekToken() == TK_While)
-        return parseWhileExpr();
     return parseBinOpRHS(parseUnary(), 0);
 }
 
@@ -137,6 +133,10 @@ std::unique_ptr<AST> Parser::parsePrimary()
 {
     const auto Tok = peekToken();
 
+    if (peekToken() == TK_If)
+        return parseIfExpr();
+    if (peekToken() == TK_While)
+        return parseWhileExpr();
     if (Tok == TK_String) {
         eatToken();
         return std::make_unique<ConstExprAST>(Value{ Tok.Str });

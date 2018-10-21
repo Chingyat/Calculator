@@ -36,6 +36,11 @@ StdLibModule::StdLibModule()
             S += Str;
         return S;
     }));
+    addFunction("operator,", {
+      [] (const auto &, std::vector<Value> A) {
+      return A[1];
+      }, std::vector<std::type_index>(3u, typeid(Value)) });
+
     addFunction("int", UnaryFunction<int(double)>([](double x) { return int(x); }));
     addFunction("exit", UnaryFunction<void(int)>(std::exit));
     addFunction("string", UnaryFunction<std::string(int)>(std::to_string));

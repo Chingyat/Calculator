@@ -67,12 +67,13 @@ struct Parser {
     std::unique_ptr<AST> parseExpr();
 
     const std::map<int, unsigned> Precedences{
-        { '=', 10 },
-        { '+', 20 },
-        { '-', 20 },
-        { '*', 30 },
-        { '/', 30 },
-        { '^', 40 },
+	{ ',', 50 },
+        { '=', 99 },
+        { '+', 150 },
+        { '-', 150 },
+        { '*', 200 },
+        { '/', 200 },
+        { '^', 250 },
     };
 
     const std::map<std::string, int> Keywords{
