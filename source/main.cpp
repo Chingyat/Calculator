@@ -1,6 +1,6 @@
+#include "astfmt.hpp"
 #include "interpreter.hpp"
 #include "stdlib.hpp"
-#include "astfmt.hpp"
 
 #include <readline/history.h>
 #include <readline/readline.h>
@@ -56,7 +56,6 @@ int main()
     };
 
     rl_initialize();
-
 
     while (readExpr(Expr)) {
         try {

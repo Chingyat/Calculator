@@ -2,8 +2,8 @@
 #include "module.hpp"
 
 namespace lince {
-    class StdLibModule : public Module {
-    public:
-        StdLibModule();
-    };
+class StdLibModule : public Module {
+public:
+    StdLibModule();
+};
 }

@@ -67,7 +67,7 @@ struct Parser {
     std::unique_ptr<AST> parseExpr();
 
     const std::map<int, unsigned> Precedences{
-	{ ',', 50 },
+        { ',', 50 },
         { '=', 99 },
         { '+', 150 },
         { '-', 150 },
@@ -87,7 +87,7 @@ struct Parser {
         { "do", TK_Do },
     };
 
-    const std::set<int> UnaryOperators{'-', '!', '~'};
+    const std::set<int> UnaryOperators{ '-', '!', '~' };
 
     const std::set<int> RightCombinedOps{ '^', '=' };
 

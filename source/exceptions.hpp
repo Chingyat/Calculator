@@ -17,7 +17,6 @@ public:
     const char *what() const noexcept override { return Msg.c_str(); }
 };
 
-
 class EvalError : public std::exception {
     std::string Msg;
 

@@ -1,8 +1,8 @@
 #pragma once
 #include "ast.hpp"
 #include "exceptions.hpp"
-#include "value.hpp"
 #include "module.hpp"
+#include "value.hpp"
 
 #include <cassert>
 #include <cmath>

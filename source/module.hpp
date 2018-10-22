@@ -65,8 +65,8 @@ Function UnaryFunction(Callable Func)
 {
     return { [Func = std::move(Func)](lince::Interpreter *, std::vector<lince::Value> args) {
                 return invokeForValue(Func,
-                                      std::any_cast<std::tuple_element_t<0, typename lince::Signature<Type>::Arguments>>(
-                                              args[0].Data));
+                    std::any_cast<std::tuple_element_t<0, typename lince::Signature<Type>::Arguments>>(
+                        args[0].Data));
             },
         lince::Signature<Type>::TypeIndices() };
 }
@@ -76,10 +76,10 @@ Function BinaryFunction(Callable Func)
 {
     return { [Func = std::move(Func)](lince::Interpreter *, std::vector<lince::Value> args) {
                 return invokeForValue(Func,
-                                      std::any_cast<std::tuple_element_t<0, typename lince::Signature<Type>::Arguments>>(
-                                              args[0].Data),
-                                      std::any_cast<std::tuple_element_t<1, typename lince::Signature<Type>::Arguments>>(
-                                              args[1].Data));
+                    std::any_cast<std::tuple_element_t<0, typename lince::Signature<Type>::Arguments>>(
+                        args[0].Data),
+                    std::any_cast<std::tuple_element_t<1, typename lince::Signature<Type>::Arguments>>(
+                        args[1].Data));
             },
         lince::Signature<Type>::TypeIndices() };
 }

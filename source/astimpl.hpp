@@ -30,8 +30,8 @@ public:
 };
 
 class GenericCallExpr : public AST {
-public: 
-    Value eval(Interpreter *C) { return {{}}; }
+public:
+    Value eval(Interpreter *C) { return { {} }; }
     virtual std::string getFunctionName() const = 0;
 
     virtual std::vector<std::string> getParams() const = 0;
@@ -56,14 +56,15 @@ public:
             reinterpret_cast<const char(&)[]>(Op), Operand->dump());
     }
 
-    std::string getFunctionName() const final {
-      return std::string("operator") + reinterpret_cast<const char (&)[]>(Op);
+    std::string getFunctionName() const final
+    {
+        return std::string("operator") + reinterpret_cast<const char(&)[]>(Op);
     }
 
-    std::vector<std::string> getParams() const final {
-	return { dynamic_cast<const IdentifierAST &>(*Operand).getName() };
+    std::vector<std::string> getParams() const final
+    {
+        return { dynamic_cast<const IdentifierAST &>(*Operand).getName() };
     }
-
 };
 
 class BinExprAST : public GenericCallExpr {
@@ -88,15 +89,15 @@ public:
             LHS->dump(), RHS->dump());
     }
 
-    std::string getFunctionName() const final {
-      return std::string("operator") + reinterpret_cast<const char (&)[]>(Op);
+    std::string getFunctionName() const final
+    {
+        return std::string("operator") + reinterpret_cast<const char(&)[]>(Op);
     }
 
-
-    std::vector<std::string> getParams() const final {
-	return { dynamic_cast<const IdentifierAST&>(*LHS).getName(), dynamic_cast<const IdentifierAST&>(*RHS).getName() };
+    std::vector<std::string> getParams() const final
+    {
+        return { dynamic_cast<const IdentifierAST &>(*LHS).getName(), dynamic_cast<const IdentifierAST &>(*RHS).getName() };
     }
-
 };
 
 class ConstExprAST : public AST {
@@ -115,7 +116,6 @@ public:
         return fmt::format("Constant {{Value: \"{} <{}>\"}}", V.stringof(), demangle(V.Data.type().name()));
     }
 };
-
 
 template <typename Sequence>
 inline std::string dumpASTArray(Sequence &&Seq)
@@ -194,6 +194,7 @@ public:
 
 class WhileExprAST : public AST {
     std::unique_ptr<AST> Condition, Body;
+
 public:
     WhileExprAST(std::unique_ptr<AST> Condition, std::unique_ptr<AST> Body)
         : Condition(std::move(Condition))
@@ -213,7 +214,7 @@ public:
     std::string dump() const final
     {
         return fmt::format("WhileExpression {{Condition: {}, Body: {}}}",
-                Condition->dump(), Body->dump());
+            Condition->dump(), Body->dump());
     }
 };
 

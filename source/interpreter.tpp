@@ -3,15 +3,15 @@
 
 namespace lince {
 
-    inline bool isConvertible(Interpreter *C, const std::type_index &From, const std::type_index &To) noexcept
-    {
-        try {
-            C->getFunction(ConstructorName(To.name()), std::vector<std::type_index>{ To, From });
-            return true;
-        } catch (EvalError &) {
-            return false;
-        }
+inline bool isConvertible(Interpreter *C, const std::type_index &From, const std::type_index &To) noexcept
+{
+    try {
+        C->getFunction(ConstructorName(To.name()), std::vector<std::type_index>{ To, From });
+        return true;
+    } catch (EvalError &) {
+        return false;
     }
+}
 
 template <typename FwdIt1, typename FwdIt2>
 inline bool areConvertible(Interpreter *C, FwdIt1 First, FwdIt1 Last, FwdIt2 OFirst, FwdIt2 OLast)
