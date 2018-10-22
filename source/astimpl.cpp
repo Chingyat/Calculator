@@ -1,6 +1,7 @@
 #include "astimpl.hpp"
 #include "exceptions.hpp"
 #include "interpreter.hpp"
+#include "pseudortti.hpp"
 
 namespace lince {
 
@@ -11,7 +12,7 @@ std::vector<std::string> CallExprAST::getParams() const
     std::vector<std::string> Ret;
     Ret.reserve(Args.size());
     for (auto &&X : Args) {
-        Ret.emplace_back(dynamic_cast<const IdentifierAST &>(*X).getName());
+        Ret.emplace_back(dyn_cast<IdentifierAST>(*X).getName());
     }
     return Ret;
 }
@@ -26,12 +27,12 @@ Value UnaryExprAST::eval(Interpreter *C)
 Value BinExprAST::eval(Interpreter *C)
 {
     if (Op == '=') { // deal with assignments
-        if (const auto Identifier = dynamic_cast<const IdentifierAST *>(LHS.get())) {
+        if (const auto Identifier = dyn_cast<IdentifierAST>(LHS.get())) {
             const auto V = RHS->eval(C);
             C->setValue(Identifier->getName(), V);
             return V;
         }
-        if (const auto Func = dynamic_cast<const GenericCallExpr *>(LHS.get())) {
+        if (const auto Func = dyn_cast<GenericCallExpr>(LHS.get())) {
             auto F = DynamicFunction(Func->getParams(), std::move(RHS));
             return { C->addLocalFunction(Func->getFunctionName(), std::move(F)) };
         }

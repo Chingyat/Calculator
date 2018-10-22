@@ -39,7 +39,7 @@ StdLibModule::StdLibModule()
     addFunction("operator,", { [](const auto &, std::vector<Value> A) {
                                   return A[1];
                               },
-                                 std::vector<std::type_index>(3u, typeid(Value)) });
+                                 std::vector<int>(3u, type_id<Value>) });
 
     addFunction("int", UnaryFunction<int(double)>([](double x) { return int(x); }));
     addFunction("exit", UnaryFunction<void(int)>(std::exit));

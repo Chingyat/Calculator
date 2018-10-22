@@ -7,7 +7,8 @@ add_executable(calc
 
 target_link_libraries(calc Threads::Threads)
 target_compile_features(calc PUBLIC cxx_std_17)
-
+target_compile_options(calc PRIVATE -fno-rtti)
+target_compile_options(calc PUBLIC -Wno-multichar)
 target_link_libraries(calc "readline")
 
 add_library(stdlib stdlib.cpp)
@@ -15,3 +16,4 @@ target_compile_features(stdlib PUBLIC cxx_std_17)
 
 target_link_libraries(calc stdlib)
 target_link_libraries(calc fmt::fmt)
+target_compile_options(stdlib PUBLIC -Wno-multichar)

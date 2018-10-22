@@ -6,9 +6,9 @@
 
 namespace lince {
 
-inline std::string ConstructorName(std::string const &Name)
+inline std::string ConstructorName(int Name)
 {
-    return "__" + Name;
+    return std::string("__") + reinterpret_cast<const char (&)[]>( Name );
 }
 
 template <typename Impl>
@@ -41,9 +41,9 @@ public:
                 return { T(
                     std::any_cast<U>(A[0].Data)) };
             },
-            std::vector<std::type_index>{ typeid(T), typeid(U) }
+            std::vector<int>{ type_id<T>, type_id<U> }
         };
-        return addFunction(ConstructorName(typeid(T).name()), std::move(F));
+        return addFunction(ConstructorName(type_id<T>), std::move(F));
     }
 
     const Value &addValue(const std::string &Name, Value TheValue)
@@ -68,7 +68,7 @@ Function UnaryFunction(Callable Func)
                     std::any_cast<std::tuple_element_t<0, typename lince::Signature<Type>::Arguments>>(
                         args[0].Data));
             },
-        lince::Signature<Type>::TypeIndices() };
+        lince::Signature<Type>::TypeIDs() };
 }
 
 template <typename Type, typename Callable = std::decay_t<Type>>
@@ -81,7 +81,7 @@ Function BinaryFunction(Callable Func)
                     std::any_cast<std::tuple_element_t<1, typename lince::Signature<Type>::Arguments>>(
                         args[1].Data));
             },
-        lince::Signature<Type>::TypeIndices() };
+        lince::Signature<Type>::TypeIDs() };
 }
 
 }

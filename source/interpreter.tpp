@@ -3,10 +3,10 @@
 
 namespace lince {
 
-inline bool isConvertible(Interpreter *C, const std::type_index &From, const std::type_index &To) noexcept
+inline bool isConvertible(Interpreter *C, int From, int To) noexcept
 {
     try {
-        C->getFunction(ConstructorName(To.name()), std::vector<std::type_index>{ To, From });
+        C->getFunction(ConstructorName(To), std::vector<int>{ To, From });
         return true;
     } catch (EvalError &) {
         return false;
@@ -29,9 +29,9 @@ template <typename Sequence>
 Value Interpreter::callFunction(const std::string &Name, Sequence &&Args)
 {
     auto Functions = findFunctions(Name);
-    std::vector<std::type_index> ArgTypes;
+    std::vector<int> ArgTypes;
     std::transform(std::cbegin(Args), std::cend(Args), std::back_inserter(ArgTypes),
-        [](const Value &V) { return std::type_index(V.Data.type()); });
+        std::mem_fn(&Value::TypeID));
 
     const auto F = std::find_if(Functions.cbegin(), Functions.cend(),
         [&](const Function &Func) { return Func.matchType(ArgTypes); });
@@ -56,10 +56,10 @@ Value Interpreter::callFunction(const std::string &Name, Sequence &&Args)
         auto Arg = std::begin(Args);
         auto Type = FirstMatch->get().Type.cbegin() + 1;
         while (Arg != Args.end()) {
-            if (*Type != Arg->Data.type()) {
+            if (*Type != Arg->TypeID()) {
                 std::vector<Value> ConversionArg;
                 ConversionArg.emplace_back(std::move(*Arg));
-                *Arg = callFunction(ConstructorName(Type->name()), std::move(ConversionArg));
+                *Arg = callFunction(ConstructorName(*Type), std::move(ConversionArg));
             }
             ++Type;
             ++Arg;
@@ -70,9 +70,9 @@ Value Interpreter::callFunction(const std::string &Name, Sequence &&Args)
     if (NCandidates > 1) {
         std::string Msg = "Ambiguous function call: \n";
         std::for_each(FirstMatch, Functions.cend(), [&](const Function &Func) {
-            Msg += std::string("Candidate: ") + demangle(Func.Type.front().name()) + ' ' + Name + "(";
-            std::for_each(Func.Type.begin() + 1, Func.Type.end(), [&](const std::type_index &TI) {
-                Msg += std::string(" ") + demangle(TI.name()) + ',';
+            Msg += std::string("Candidate: ") + TypeIDStr(Func.Type.front()) + ' ' + Name + "(";
+            std::for_each(Func.Type.begin() + 1, Func.Type.end(), [&](int TI) {
+                Msg += std::string(" ") + TypeIDStr(TI) + ',';
             });
             Msg.pop_back();
             Msg += " )\n";
@@ -83,8 +83,8 @@ Value Interpreter::callFunction(const std::string &Name, Sequence &&Args)
     // NCandidates == 0
     // Try dynamic functions
     const auto DynFunc = std::find_if(Functions.cbegin(), Functions.cend(), [](const Function &F) {
-        return std::all_of(F.Type.cbegin() + 1, F.Type.cend(), [](const std::type_index &TI) {
-            return TI == typeid(Value);
+        return std::all_of(F.Type.cbegin() + 1, F.Type.cend(), [](int TI) {
+            return TI == type_id<Value>;
         });
     });
 
@@ -109,14 +109,14 @@ Function DynamicFunction(Sequence &&ParamsV, std::shared_ptr<AST> Body)
 {
     auto Params = std::make_shared<std::vector<std::string>>(std::forward<Sequence>(ParamsV));
     return { [Params, Body](Interpreter *C, std::vector<Value> Args) {
-                const auto _ = C->createScope();
-                const auto N = Params->size();
-                for (size_t I = 0; I != N; ++I) {
-                    C->addLocalValue(Params->at(I), Args[I]);
-                }
-                return Body->eval(C);
+        const auto _ = C->createScope();
+        const auto N = Params->size();
+        for (size_t I = 0; I != N; ++I) {
+            C->addLocalValue(Params->at(I), Args[I]);
+        }
+        return Body->eval(C);
             },
-        std::vector(Params->size() + 1, static_cast<std::type_index>(typeid(Value))) };
+        std::vector<int>(Params->size() + 1, type_id<Value>) };
 }
 
 }

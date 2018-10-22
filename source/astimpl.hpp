@@ -1,8 +1,7 @@
-#include <utility>
-
 #pragma once
 #include "ast.hpp"
 #include "value.hpp"
+#include "pseudortti.hpp"
 
 #include <fmt/format.h>
 #include <memory>
@@ -10,12 +9,13 @@
 
 namespace lince {
 
-class IdentifierAST : public AST {
+class IdentifierAST final : public AST {
     std::string Name;
 
 public:
     explicit IdentifierAST(std::string Name)
-        : Name(std::move(Name))
+        : AST(AK_Identifier)
+        , Name(std::move(Name))
     {
     }
 
@@ -26,24 +26,40 @@ public:
         return fmt::format("Identifier {{Name: \"{}\"}}", getName());
     }
 
+    static bool classof(const AST *A) noexcept
+    {
+        return A->getKind() == AK_Identifier;
+    }
+
     const std::string &getName() const & { return Name; }
 };
 
 class GenericCallExpr : public AST {
 public:
+    GenericCallExpr(AST_Kind Kind)
+        : AST(Kind)
+    {
+    }
+
     Value eval(Interpreter *C) { return { {} }; }
     virtual std::string getFunctionName() const = 0;
 
     virtual std::vector<std::string> getParams() const = 0;
+
+    static bool classof(const AST *A) noexcept
+    {
+        return A->getKind() > AK_GenericCallExpr && A->getKind() < AK_GenericCallExprEnd;
+    }
 };
 
-class UnaryExprAST : public GenericCallExpr {
+class UnaryExprAST final : public GenericCallExpr {
     std::unique_ptr<AST> Operand;
     int Op;
 
 public:
     UnaryExprAST(std::unique_ptr<AST> Operand, int Op) noexcept
-        : Operand(std::move(Operand))
+        : GenericCallExpr(AK_UnaryExpr)
+        , Operand(std::move(Operand))
         , Op(Op)
     {
     }
@@ -63,18 +79,24 @@ public:
 
     std::vector<std::string> getParams() const final
     {
-        return { dynamic_cast<const IdentifierAST &>(*Operand).getName() };
+        return { dyn_cast<IdentifierAST>(*Operand).getName() };
+    }
+
+    static bool classof(const AST *A) noexcept
+    {
+        return A->getKind() == AK_UnaryExpr;
     }
 };
 
-class BinExprAST : public GenericCallExpr {
+class BinExprAST final : public GenericCallExpr {
     std::unique_ptr<AST> LHS, RHS;
     int Op;
 
 public:
     BinExprAST(std::unique_ptr<AST> LHS, std::unique_ptr<AST> RHS,
         int Op) noexcept
-        : LHS(std::move(LHS))
+        : GenericCallExpr(AK_BinExpr)
+        , LHS(std::move(LHS))
         , RHS(std::move(RHS))
         , Op(Op)
     {
@@ -96,16 +118,22 @@ public:
 
     std::vector<std::string> getParams() const final
     {
-        return { dynamic_cast<const IdentifierAST &>(*LHS).getName(), dynamic_cast<const IdentifierAST &>(*RHS).getName() };
+        return { dyn_cast<IdentifierAST>(*LHS).getName(), dyn_cast<IdentifierAST>(*RHS).getName() };
+    }
+
+    static bool classof(const AST *A) noexcept
+    {
+        return A->getKind() == AK_BinExpr;
     }
 };
 
-class ConstExprAST : public AST {
+class ConstExprAST final : public AST {
     Value V;
 
 public:
     explicit ConstExprAST(Value V) noexcept
-        : V(std::move(V))
+        : AST(AK_ConstExpr)
+        , V(std::move(V))
     {
     }
 
@@ -113,7 +141,12 @@ public:
 
     std::string dump() const final
     {
-        return fmt::format("Constant {{Value: \"{} <{}>\"}}", V.stringof(), demangle(V.Data.type().name()));
+        return fmt::format("Constant {{Value: \"{} <{}>\"}}", V.stringof(), TypeIDStr(V.TypeID()));
+    }
+
+    static bool classof(const AST *A) noexcept
+    {
+        return A->getKind() == AK_ConstExpr;
     }
 };
 
@@ -129,13 +162,14 @@ inline std::string dumpASTArray(Sequence &&Seq)
     return S;
 }
 
-class CallExprAST : public GenericCallExpr {
+class CallExprAST final : public GenericCallExpr {
     std::string Name;
     std::vector<std::unique_ptr<AST>> Args;
 
 public:
     CallExprAST(std::string Name, std::vector<std::unique_ptr<AST>> Args)
-        : Name(std::move(Name))
+        : GenericCallExpr(AK_CallExpr)
+        , Name(std::move(Name))
         , Args(std::move(Args))
     {
     }
@@ -150,15 +184,21 @@ public:
     std::vector<std::string> getParams() const final;
 
     std::string getFunctionName() const noexcept final { return Name; }
+
+    static bool classof(const AST *A) noexcept
+    {
+        return A->getKind() == AK_CallExpr;
+    }
 };
 
-class LambdaCallExpr : public AST {
+class LambdaCallExpr final : public AST {
     std::unique_ptr<AST> Lambda;
     std::vector<std::unique_ptr<AST>> Args;
 
 public:
     LambdaCallExpr(std::unique_ptr<AST> Lambda, std::vector<std::unique_ptr<AST>> Args)
-        : Lambda(std::move(Lambda))
+        : AST(AK_LambdaCallExpr)
+        , Lambda(std::move(Lambda))
         , Args(std::move(Args))
     {
     }
@@ -169,14 +209,20 @@ public:
     {
         return fmt::format("LambdaCall {{Lambda: {},Args: {}}}", Lambda->dump(), dumpASTArray(Args));
     }
+
+    static bool classof(const AST *A) noexcept
+    {
+        return A->getKind() == AK_LambdaCallExpr;
+    }
 };
 
-class IfExprAST : public AST {
+class IfExprAST final : public AST {
     std::unique_ptr<AST> Condition, Then, Else;
 
 public:
     IfExprAST(std::unique_ptr<AST> Condition, std::unique_ptr<AST> Then, std::unique_ptr<AST> Else)
-        : Condition(std::move(Condition))
+        : AST(AK_IfExpr)
+        , Condition(std::move(Condition))
         , Then(std::move(Then))
         , Else(std::move(Else))
     {
@@ -190,14 +236,20 @@ public:
             "IfExpression {{Condition: {},ThenClause: {},ElseClause: {}}}",
             Condition->dump(), Then->dump(), Else ? Else->dump() : "nil");
     }
+
+    static bool classof(const AST *A) noexcept
+    {
+        return A->getKind() == AK_IfExpr;
+    }
 };
 
-class WhileExprAST : public AST {
+class WhileExprAST final : public AST {
     std::unique_ptr<AST> Condition, Body;
 
 public:
     WhileExprAST(std::unique_ptr<AST> Condition, std::unique_ptr<AST> Body)
-        : Condition(std::move(Condition))
+        : AST(AK_WhileExpr)
+        , Condition(std::move(Condition))
         , Body(std::move(Body))
     {
     }
@@ -216,14 +268,20 @@ public:
         return fmt::format("WhileExpression {{Condition: {}, Body: {}}}",
             Condition->dump(), Body->dump());
     }
+
+    static bool classof(const AST *A) noexcept
+    {
+        return A->getKind() == AK_WhileExpr;
+    }
 };
 
-class TranslationUnitAST : public AST {
+class TranslationUnitAST final : public AST {
     std::vector<std::unique_ptr<AST>> ExprList;
 
 public:
     explicit TranslationUnitAST(std::vector<std::unique_ptr<AST>> ExprList = {})
-        : ExprList(std::move(ExprList))
+        : AST(AK_TranslationUnit)
+        , ExprList(std::move(ExprList))
     {
     }
 
@@ -239,6 +297,11 @@ public:
     std::string dump() const final
     {
         return fmt::format("TranslationUnitAST {{ExpressionList: {}}}", dumpASTArray(ExprList));
+    }
+
+    static bool classof(const AST *A) noexcept
+    {
+        return A->getKind() == AK_TranslationUnit;
     }
 };
 
