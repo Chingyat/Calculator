@@ -67,7 +67,7 @@ struct Parser {
     std::unique_ptr<AST> parseExpr();
 
     const std::map<int, unsigned> Precedences{
-        { ',', 50 },
+        { ';', 50 },
         { '=', 99 },
         { '+', 150 },
         { '-', 150 },
